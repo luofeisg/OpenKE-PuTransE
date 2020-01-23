@@ -11,6 +11,7 @@ INT *freqRel, *freqEnt;
 INT *lefHead, *rigHead;
 INT *lefTail, *rigTail;
 INT *lefRel, *rigRel;
+INT *lefRel2, *rigRel2;
 REAL *left_mean, *right_mean;
 REAL *prob;
 
@@ -18,6 +19,7 @@ Triple *trainList;
 Triple *trainHead;
 Triple *trainTail;
 Triple *trainRel;
+Triple *trainRel2;
 
 INT *testLef, *testRig;
 INT *validLef, *validRig;
@@ -72,6 +74,7 @@ void importTrainFiles() {
 	trainHead = (Triple *)calloc(trainTotal, sizeof(Triple));
 	trainTail = (Triple *)calloc(trainTotal, sizeof(Triple));
 	trainRel = (Triple *)calloc(trainTotal, sizeof(Triple));
+	trainRel2 = (Triple *)calloc(trainTotal, sizeof(Triple));
 	freqRel = (INT *)calloc(relationTotal, sizeof(INT));
 	freqEnt = (INT *)calloc(entityTotal, sizeof(INT));
 	for (INT i = 0; i < trainTotal; i++) {
@@ -82,13 +85,13 @@ void importTrainFiles() {
 	fclose(fin);
 	std::sort(trainList, trainList + trainTotal, Triple::cmp_head);
 	tmp = trainTotal; trainTotal = 1;
-	trainHead[0] = trainTail[0] = trainRel[0] = trainList[0];
+	trainHead[0] = trainTail[0] = trainRel[0] = trainRel2[0] = trainList[0];
 	freqEnt[trainList[0].t] += 1;
 	freqEnt[trainList[0].h] += 1;
 	freqRel[trainList[0].r] += 1;
 	for (INT i = 1; i < tmp; i++)
 		if (trainList[i].h != trainList[i - 1].h || trainList[i].r != trainList[i - 1].r || trainList[i].t != trainList[i - 1].t) {
-			trainHead[trainTotal] = trainTail[trainTotal] = trainRel[trainTotal] = trainList[trainTotal] = trainList[i];
+			trainHead[trainTotal] = trainTail[trainTotal] = trainRel[trainTotal] = trainRel2[trainTotal] = trainList[trainTotal] = trainList[i];
 			trainTotal++;
 			freqEnt[trainList[i].t]++;
 			freqEnt[trainList[i].h]++;
@@ -98,6 +101,7 @@ void importTrainFiles() {
 	std::sort(trainHead, trainHead + trainTotal, Triple::cmp_head);
 	std::sort(trainTail, trainTail + trainTotal, Triple::cmp_tail);
 	std::sort(trainRel, trainRel + trainTotal, Triple::cmp_rel);
+	std::sort(trainRel2, trainRel2 + trainTotal, Triple::cmp_rel2);
 	printf("The total of train triples is %ld.\n", trainTotal);
 
 	lefHead = (INT *)calloc(entityTotal, sizeof(INT));
@@ -122,6 +126,10 @@ void importTrainFiles() {
 			rigRel[trainRel[i - 1].h] = i - 1;
 			lefRel[trainRel[i].h] = i;
 		}
+		if (trainRel2[i].r != trainRel2[i - 1].r) {
+			rigRel2[trainRel2[i - 1].r] = i - 1;
+			lefRel2[trainRel2[i].r] = i;
+		}
 	}
 	lefHead[trainHead[0].h] = 0;
 	rigHead[trainHead[trainTotal - 1].h] = trainTotal - 1;
@@ -129,6 +137,8 @@ void importTrainFiles() {
 	rigTail[trainTail[trainTotal - 1].t] = trainTotal - 1;
 	lefRel[trainRel[0].h] = 0;
 	rigRel[trainRel[trainTotal - 1].h] = trainTotal - 1;
+	lefRel2[trainRel2[0].r] = 0;
+	rigRel2[trainRel2[trainTotal - 1].r] = trainTotal - 1;
 
 	left_mean = (REAL *)calloc(relationTotal,sizeof(REAL));
 	right_mean = (REAL *)calloc(relationTotal,sizeof(REAL));
