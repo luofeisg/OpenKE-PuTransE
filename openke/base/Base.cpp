@@ -43,6 +43,9 @@ extern "C"
 void randReset();
 
 extern "C"
+INT randBetween(INT a, INT b);
+
+extern "C"
 void importTrainFiles();
 
 struct Parameter {

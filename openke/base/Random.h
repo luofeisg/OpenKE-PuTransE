@@ -3,6 +3,9 @@
 #include "Setting.h"
 #include <cstdlib>
 
+// variable for initially setting random seed
+bool first = true;
+
 // the random seeds for all threads.
 unsigned long long *next_random;
 
@@ -30,6 +33,15 @@ INT rand_max(INT id, INT x) {
 
 // get a random interger from the range [a,b) for the id-th thread.
 INT rand(INT a, INT b){
+	return (rand() % (b-a))+ a;
+}
+
+extern "C"
+INT randBetween(INT a, INT b){
+	if (first){
+	    srand(time(0));
+	    first = false;
+	}
 	return (rand() % (b-a))+ a;
 }
 #endif
