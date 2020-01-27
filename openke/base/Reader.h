@@ -110,6 +110,8 @@ void importTrainFiles() {
 	rigTail = (INT *)calloc(entityTotal, sizeof(INT));
 	lefRel = (INT *)calloc(entityTotal, sizeof(INT));
 	rigRel = (INT *)calloc(entityTotal, sizeof(INT));
+	lefRel2 = (INT *)calloc(entityTotal, sizeof(INT));
+	rigRel2 = (INT *)calloc(entityTotal, sizeof(INT));
 	memset(rigHead, -1, sizeof(INT)*entityTotal);
 	memset(rigTail, -1, sizeof(INT)*entityTotal);
 	memset(rigRel, -1, sizeof(INT)*entityTotal);

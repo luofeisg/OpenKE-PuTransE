@@ -41,6 +41,14 @@ class TrainDataLoader(object):
 			ctypes.c_int64,
 			ctypes.c_int64
 		]
+
+		self.lib.getParallelUniverse.argtypes = [
+			ctypes.c_void_p,
+			ctypes.c_void_p,
+			ctypes.c_void_p,
+			ctypes.c_int64,
+			ctypes.c_float,
+		]
 		"""set essential parameters"""
 		self.in_path = in_path
 		self.work_threads = threads
