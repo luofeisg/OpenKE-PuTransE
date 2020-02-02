@@ -1,8 +1,10 @@
 #ifndef READER_H
 #define READER_H
+
 #include "Setting.h"
 #include "Triple.h"
 #include <cstdlib>
+#include <set>
 #include <algorithm>
 #include <iostream>
 #include <cmath>
@@ -21,145 +23,226 @@ Triple *trainTail;
 Triple *trainRel;
 Triple *trainRel2;
 
+INT *freqRelUniverse, *freqEntUniverse;
+INT *lefHeadUniverse, *rigHeadUniverse;
+INT *lefTailUniverse, *rigTailUniverse;
+INT *lefRelUniverse, *rigRelUniverse;
+INT *lefRel2Universe, *rigRel2Universe;
+REAL *left_meanUniverse, *right_meanUniverse;
+
+Triple *trainListUniverse;
+Triple *trainHeadUniverse;
+Triple *trainTailUniverse;
+Triple *trainRelUniverse;
+Triple *trainRel2Universe;
+
 INT *testLef, *testRig;
 INT *validLef, *validRig;
 
 extern "C"
-void importProb(REAL temp){
+void importProb(REAL temp) {
     if (prob != NULL)
         free(prob);
     FILE *fin;
     fin = fopen((inPath + "kl_prob.txt").c_str(), "r");
     printf("Current temperature:%f\n", temp);
-    prob = (REAL *)calloc(relationTotal * (relationTotal - 1), sizeof(REAL));
+    prob = (REAL *) calloc(relationTotal * (relationTotal - 1), sizeof(REAL));
     INT tmp;
-    for (INT i = 0; i < relationTotal * (relationTotal - 1); ++i){
+    for (INT i = 0; i < relationTotal * (relationTotal - 1); ++i) {
         tmp = fscanf(fin, "%f", &prob[i]);
     }
     REAL sum = 0.0;
     for (INT i = 0; i < relationTotal; ++i) {
-        for (INT j = 0; j < relationTotal-1; ++j){
+        for (INT j = 0; j < relationTotal - 1; ++j) {
             REAL tmp = exp(-prob[i * (relationTotal - 1) + j] / temp);
             sum += tmp;
             prob[i * (relationTotal - 1) + j] = tmp;
         }
-        for (INT j = 0; j < relationTotal-1; ++j){
-            prob[i*(relationTotal-1)+j] /= sum;
+        for (INT j = 0; j < relationTotal - 1; ++j) {
+            prob[i * (relationTotal - 1) + j] /= sum;
         }
         sum = 0;
     }
     fclose(fin);
 }
 
+void initializeHelpers(
+    Triple * &trainList,
+    Triple * &trainHead,
+    Triple * &trainTail,
+    Triple * &trainRel,
+    Triple * &trainRel2,
+    INT * &freqRel,
+    INT * &freqEnt,
+    INT trainTotal,
+    INT * &lefHead,
+    INT * &rigHead,
+    INT * &lefTail,
+    INT * &rigTail,
+    INT * &lefRel,
+    INT * &rigRel,
+    INT * &lefRel2,
+    INT * &rigRel2
+    ) {
+    std::sort(trainList, trainList + trainTotal, Triple::cmp_head);
+    std::set<INT> entity_set;
+    std::set<INT> relation_set;
+
+    for (INT i = 1; i < trainTotal; i++) {
+        entity_set.insert(trainList[i].h);
+        entity_set.insert(trainList[i].t);
+        relation_set.insert(trainList[i].r);
+    }
+    INT entityTotal = entity_set.size();
+    INT relationTotal = relation_set.size();
+
+    trainHead = (Triple *) calloc(trainTotal, sizeof(Triple));
+    trainTail = (Triple *) calloc(trainTotal, sizeof(Triple));
+    trainRel = (Triple *) calloc(trainTotal, sizeof(Triple));
+    trainRel2 = (Triple *) calloc(trainTotal, sizeof(Triple));
+    freqRel = (INT *) calloc(relationTotal, sizeof(INT));
+    freqEnt = (INT *) calloc(entityTotal, sizeof(INT));
+
+    trainHead[0] = trainTail[0] = trainRel[0] = trainRel2[0] = trainList[0];
+    freqEnt[trainList[0].t] += 1;
+    freqEnt[trainList[0].h] += 1;
+    freqRel[trainList[0].r] += 1;
+
+    for (INT i = 1; i < trainTotal; i++) {
+        trainHead[i] = trainTail[i] = trainRel[i] = trainRel2[i] = trainList[i];
+        freqEnt[trainList[i].t]++;
+        freqEnt[trainList[i].h]++;
+        freqRel[trainList[i].r]++;
+    }
+    std::sort(trainHead, trainHead + trainTotal, Triple::cmp_head);
+    std::sort(trainTail, trainTail + trainTotal, Triple::cmp_tail);
+    std::sort(trainRel, trainRel + trainTotal, Triple::cmp_rel);
+    std::sort(trainRel2, trainRel2 + trainTotal, Triple::cmp_rel2);
+
+    lefHead = (INT *) calloc(entityTotal, sizeof(INT));
+    rigHead = (INT *) calloc(entityTotal, sizeof(INT));
+    lefTail = (INT *) calloc(entityTotal, sizeof(INT));
+    rigTail = (INT *) calloc(entityTotal, sizeof(INT));
+    lefRel = (INT *) calloc(entityTotal, sizeof(INT));
+    rigRel = (INT *) calloc(entityTotal, sizeof(INT));
+    lefRel2 = (INT *) calloc(entityTotal, sizeof(INT));
+    rigRel2 = (INT *) calloc(entityTotal, sizeof(INT));
+    memset(rigHead, -1, sizeof(INT) * entityTotal);
+    memset(rigTail, -1, sizeof(INT) * entityTotal);
+    memset(rigRel, -1, sizeof(INT) * entityTotal);
+    for (INT i = 1; i < trainTotal; i++) {
+        if (trainTail[i].t != trainTail[i - 1].t) {
+            rigTail[trainTail[i - 1].t] = i - 1;
+            lefTail[trainTail[i].t] = i;
+        }
+        if (trainHead[i].h != trainHead[i - 1].h) {
+            rigHead[trainHead[i - 1].h] = i - 1;
+            lefHead[trainHead[i].h] = i;
+        }
+        if (trainRel[i].h != trainRel[i - 1].h) {
+            rigRel[trainRel[i - 1].h] = i - 1;
+            lefRel[trainRel[i].h] = i;
+        }
+        if (trainRel2[i].r != trainRel2[i - 1].r) {
+            rigRel2[trainRel2[i - 1].r] = i - 1;
+            lefRel2[trainRel2[i].r] = i;
+        }
+    }
+    lefHead[trainHead[0].h] = 0;
+    rigHead[trainHead[trainTotal - 1].h] = trainTotal - 1;
+    lefTail[trainTail[0].t] = 0;
+    rigTail[trainTail[trainTotal - 1].t] = trainTotal - 1;
+    lefRel[trainRel[0].h] = 0;
+    rigRel[trainRel[trainTotal - 1].h] = trainTotal - 1;
+    lefRel2[trainRel2[0].r] = 0;
+    rigRel2[trainRel2[trainTotal - 1].r] = trainTotal - 1;
+
+    left_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
+    right_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
+    for (INT i = 0; i < entityTotal; i++) {
+        for (INT j = lefHead[i] + 1; j <= rigHead[i]; j++)
+            if (trainHead[j].r != trainHead[j - 1].r)
+                left_mean[trainHead[j].r] += 1.0;
+        if (lefHead[i] <= rigHead[i])
+            left_mean[trainHead[lefHead[i]].r] += 1.0;
+        for (INT j = lefTail[i] + 1; j <= rigTail[i]; j++)
+            if (trainTail[j].r != trainTail[j - 1].r)
+                right_mean[trainTail[j].r] += 1.0;
+        if (lefTail[i] <= rigTail[i])
+            right_mean[trainTail[lefTail[i]].r] += 1.0;
+    }
+    for (INT i = 0; i < relationTotal; i++) {
+        left_mean[i] = freqRel[i] / left_mean[i];
+        right_mean[i] = freqRel[i] / right_mean[i];
+    }
+    printf("head ent %ld.\n", trainHead[trainTotal-1].h);
+}
+
 extern "C"
 void importTrainFiles() {
 
-	printf("The toolkit is importing datasets.\n");
-	FILE *fin;
-	int tmp;
+    printf("The toolkit is importing datasets.\n");
+    FILE *fin;
+    int tmp;
 
-	fin = fopen((inPath + "relation2id.txt").c_str(), "r");
-	tmp = fscanf(fin, "%ld", &relationTotal);
-	printf("The total of relations is %ld.\n", relationTotal);
-	fclose(fin);
+    fin = fopen((inPath + "relation2id.txt").c_str(), "r");
+    tmp = fscanf(fin, "%ld", &relationTotal);
+    printf("The total of relations is %ld.\n", relationTotal);
+    fclose(fin);
 
-	fin = fopen((inPath + "entity2id.txt").c_str(), "r");
-	tmp = fscanf(fin, "%ld", &entityTotal);
-	printf("The total of entities is %ld.\n", entityTotal);
-	fclose(fin);
+    fin = fopen((inPath + "entity2id.txt").c_str(), "r");
+    tmp = fscanf(fin, "%ld", &entityTotal);
+    printf("The total of entities is %ld.\n", entityTotal);
+    fclose(fin);
 
-	fin = fopen((inPath + "train2id.txt").c_str(), "r");
-	tmp = fscanf(fin, "%ld", &trainTotal);
-	trainList = (Triple *)calloc(trainTotal, sizeof(Triple));
-	trainHead = (Triple *)calloc(trainTotal, sizeof(Triple));
-	trainTail = (Triple *)calloc(trainTotal, sizeof(Triple));
-	trainRel = (Triple *)calloc(trainTotal, sizeof(Triple));
-	trainRel2 = (Triple *)calloc(trainTotal, sizeof(Triple));
-	freqRel = (INT *)calloc(relationTotal, sizeof(INT));
-	freqEnt = (INT *)calloc(entityTotal, sizeof(INT));
-	for (INT i = 0; i < trainTotal; i++) {
-		tmp = fscanf(fin, "%ld", &trainList[i].h);
-		tmp = fscanf(fin, "%ld", &trainList[i].t);
-		tmp = fscanf(fin, "%ld", &trainList[i].r);
-	}
-	fclose(fin);
-	std::sort(trainList, trainList + trainTotal, Triple::cmp_head);
-	tmp = trainTotal; trainTotal = 1;
-	trainHead[0] = trainTail[0] = trainRel[0] = trainRel2[0] = trainList[0];
-	freqEnt[trainList[0].t] += 1;
-	freqEnt[trainList[0].h] += 1;
-	freqRel[trainList[0].r] += 1;
-	for (INT i = 1; i < tmp; i++)
-		if (trainList[i].h != trainList[i - 1].h || trainList[i].r != trainList[i - 1].r || trainList[i].t != trainList[i - 1].t) {
-			trainHead[trainTotal] = trainTail[trainTotal] = trainRel[trainTotal] = trainRel2[trainTotal] = trainList[trainTotal] = trainList[i];
-			trainTotal++;
-			freqEnt[trainList[i].t]++;
-			freqEnt[trainList[i].h]++;
-			freqRel[trainList[i].r]++;
-		}
+    fin = fopen((inPath + "train2id.txt").c_str(), "r");
+    tmp = fscanf(fin, "%ld", &trainTotal);
+    trainList = (Triple *) calloc(trainTotal, sizeof(Triple));
+    for (INT i = 0; i < trainTotal; i++) {
+        tmp = fscanf(fin, "%ld", &trainList[i].h);
+        tmp = fscanf(fin, "%ld", &trainList[i].t);
+        tmp = fscanf(fin, "%ld", &trainList[i].r);
+    }
+    fclose(fin);
 
-	std::sort(trainHead, trainHead + trainTotal, Triple::cmp_head);
-	std::sort(trainTail, trainTail + trainTotal, Triple::cmp_tail);
-	std::sort(trainRel, trainRel + trainTotal, Triple::cmp_rel);
-	std::sort(trainRel2, trainRel2 + trainTotal, Triple::cmp_rel2);
-	printf("The total of train triples is %ld.\n", trainTotal);
+    std::sort(trainList, trainList + trainTotal, Triple::cmp_head);
+    tmp = trainTotal;
+    trainTotal = 1;
+    for (INT i = 1; i < tmp; i++)
+        if (trainList[i].h != trainList[i - 1].h || trainList[i].r != trainList[i - 1].r ||
+            trainList[i].t != trainList[i - 1].t) {
+            trainList[trainTotal] = trainList[i];
+            trainTotal++;
+        }
+    printf("The total of train triples is %ld.\n", trainTotal);
 
-	lefHead = (INT *)calloc(entityTotal, sizeof(INT));
-	rigHead = (INT *)calloc(entityTotal, sizeof(INT));
-	lefTail = (INT *)calloc(entityTotal, sizeof(INT));
-	rigTail = (INT *)calloc(entityTotal, sizeof(INT));
-	lefRel = (INT *)calloc(entityTotal, sizeof(INT));
-	rigRel = (INT *)calloc(entityTotal, sizeof(INT));
-	lefRel2 = (INT *)calloc(entityTotal, sizeof(INT));
-	rigRel2 = (INT *)calloc(entityTotal, sizeof(INT));
-	memset(rigHead, -1, sizeof(INT)*entityTotal);
-	memset(rigTail, -1, sizeof(INT)*entityTotal);
-	memset(rigRel, -1, sizeof(INT)*entityTotal);
-	for (INT i = 1; i < trainTotal; i++) {
-		if (trainTail[i].t != trainTail[i - 1].t) {
-			rigTail[trainTail[i - 1].t] = i - 1;
-			lefTail[trainTail[i].t] = i;
-		}
-		if (trainHead[i].h != trainHead[i - 1].h) {
-			rigHead[trainHead[i - 1].h] = i - 1;
-			lefHead[trainHead[i].h] = i;
-		}
-		if (trainRel[i].h != trainRel[i - 1].h) {
-			rigRel[trainRel[i - 1].h] = i - 1;
-			lefRel[trainRel[i].h] = i;
-		}
-		if (trainRel2[i].r != trainRel2[i - 1].r) {
-			rigRel2[trainRel2[i - 1].r] = i - 1;
-			lefRel2[trainRel2[i].r] = i;
-		}
-	}
-	lefHead[trainHead[0].h] = 0;
-	rigHead[trainHead[trainTotal - 1].h] = trainTotal - 1;
-	lefTail[trainTail[0].t] = 0;
-	rigTail[trainTail[trainTotal - 1].t] = trainTotal - 1;
-	lefRel[trainRel[0].h] = 0;
-	rigRel[trainRel[trainTotal - 1].h] = trainTotal - 1;
-	lefRel2[trainRel2[0].r] = 0;
-	rigRel2[trainRel2[trainTotal - 1].r] = trainTotal - 1;
-
-	left_mean = (REAL *)calloc(relationTotal,sizeof(REAL));
-	right_mean = (REAL *)calloc(relationTotal,sizeof(REAL));
-	for (INT i = 0; i < entityTotal; i++) {
-		for (INT j = lefHead[i] + 1; j <= rigHead[i]; j++)
-			if (trainHead[j].r != trainHead[j - 1].r)
-				left_mean[trainHead[j].r] += 1.0;
-		if (lefHead[i] <= rigHead[i])
-			left_mean[trainHead[lefHead[i]].r] += 1.0;
-		for (INT j = lefTail[i] + 1; j <= rigTail[i]; j++)
-			if (trainTail[j].r != trainTail[j - 1].r)
-				right_mean[trainTail[j].r] += 1.0;
-		if (lefTail[i] <= rigTail[i])
-			right_mean[trainTail[lefTail[i]].r] += 1.0;
-	}
-	for (INT i = 0; i < relationTotal; i++) {
-		left_mean[i] = freqRel[i] / left_mean[i];
-		right_mean[i] = freqRel[i] / right_mean[i];
-	}
+    initializeHelpers(
+            trainList,
+            trainHead,
+            trainTail,
+            trainRel,
+            trainRel2,
+            freqRel,
+            freqEnt,
+            trainTotal,
+            lefHead,
+            rigHead,
+            lefTail,
+            rigTail,
+            lefRel,
+            rigRel,
+            lefRel2,
+            rigRel2
+    );
+    printf("head ent %ld.\n", trainHead[trainTotal-1].h);
+/*
+    for (INT i = 0; i < trainTotal; i++) {
+        printf("head ent %ld.\n", trainHead[i].h);
+        printf("rel %ld.\n", trainHead[i].r);
+        printf("tail %ld.\n", trainHead[i].t);
+        printf("--------------------------\n");
+    }
+*/
 }
 
 Triple *testList;
@@ -170,7 +253,7 @@ extern "C"
 void importTestFiles() {
     FILE *fin;
     INT tmp;
-    
+
     fin = fopen((inPath + "relation2id.txt").c_str(), "r");
     tmp = fscanf(fin, "%ld", &relationTotal);
     fclose(fin);
@@ -179,16 +262,16 @@ void importTestFiles() {
     tmp = fscanf(fin, "%ld", &entityTotal);
     fclose(fin);
 
-    FILE* f_kb1 = fopen((inPath + "test2id.txt").c_str(), "r");
-    FILE* f_kb2 = fopen((inPath + "train2id.txt").c_str(), "r");
-    FILE* f_kb3 = fopen((inPath + "valid2id.txt").c_str(), "r");
+    FILE *f_kb1 = fopen((inPath + "test2id.txt").c_str(), "r");
+    FILE *f_kb2 = fopen((inPath + "train2id.txt").c_str(), "r");
+    FILE *f_kb3 = fopen((inPath + "valid2id.txt").c_str(), "r");
     tmp = fscanf(f_kb1, "%ld", &testTotal);
     tmp = fscanf(f_kb2, "%ld", &trainTotal);
     tmp = fscanf(f_kb3, "%ld", &validTotal);
     tripleTotal = testTotal + trainTotal + validTotal;
-    testList = (Triple *)calloc(testTotal, sizeof(Triple));
-    validList = (Triple *)calloc(validTotal, sizeof(Triple));
-    tripleList = (Triple *)calloc(tripleTotal, sizeof(Triple));
+    testList = (Triple *) calloc(testTotal, sizeof(Triple));
+    validList = (Triple *) calloc(validTotal, sizeof(Triple));
+    tripleList = (Triple *) calloc(tripleTotal, sizeof(Triple));
     for (INT i = 0; i < testTotal; i++) {
         tmp = fscanf(f_kb1, "%ld", &testList[i].h);
         tmp = fscanf(f_kb1, "%ld", &testList[i].t);
@@ -216,50 +299,50 @@ void importTestFiles() {
     printf("The total of test triples is %ld.\n", testTotal);
     printf("The total of valid triples is %ld.\n", validTotal);
 
-    testLef = (INT *)calloc(relationTotal, sizeof(INT));
-    testRig = (INT *)calloc(relationTotal, sizeof(INT));
+    testLef = (INT *) calloc(relationTotal, sizeof(INT));
+    testRig = (INT *) calloc(relationTotal, sizeof(INT));
     memset(testLef, -1, sizeof(INT) * relationTotal);
     memset(testRig, -1, sizeof(INT) * relationTotal);
     for (INT i = 1; i < testTotal; i++) {
-	if (testList[i].r != testList[i-1].r) {
-	    testRig[testList[i-1].r] = i - 1;
-	    testLef[testList[i].r] = i;
-	}
+        if (testList[i].r != testList[i - 1].r) {
+            testRig[testList[i - 1].r] = i - 1;
+            testLef[testList[i].r] = i;
+        }
     }
     testLef[testList[0].r] = 0;
     testRig[testList[testTotal - 1].r] = testTotal - 1;
 
-    validLef = (INT *)calloc(relationTotal, sizeof(INT));
-    validRig = (INT *)calloc(relationTotal, sizeof(INT));
-    memset(validLef, -1, sizeof(INT)*relationTotal);
-    memset(validRig, -1, sizeof(INT)*relationTotal);
+    validLef = (INT *) calloc(relationTotal, sizeof(INT));
+    validRig = (INT *) calloc(relationTotal, sizeof(INT));
+    memset(validLef, -1, sizeof(INT) * relationTotal);
+    memset(validRig, -1, sizeof(INT) * relationTotal);
     for (INT i = 1; i < validTotal; i++) {
-	if (validList[i].r != validList[i-1].r) {
-	    validRig[validList[i-1].r] = i - 1;
-	    validLef[validList[i].r] = i;
-	}
+        if (validList[i].r != validList[i - 1].r) {
+            validRig[validList[i - 1].r] = i - 1;
+            validLef[validList[i].r] = i;
+        }
     }
     validLef[validList[0].r] = 0;
     validRig[validList[validTotal - 1].r] = validTotal - 1;
 }
 
-INT* head_lef;
-INT* head_rig;
-INT* tail_lef;
-INT* tail_rig;
-INT* head_type;
-INT* tail_type;
+INT *head_lef;
+INT *head_rig;
+INT *tail_lef;
+INT *tail_rig;
+INT *head_type;
+INT *tail_type;
 
 extern "C"
 void importTypeFiles() {
 
-    head_lef = (INT *)calloc(relationTotal, sizeof(INT));
-    head_rig = (INT *)calloc(relationTotal, sizeof(INT));
-    tail_lef = (INT *)calloc(relationTotal, sizeof(INT));
-    tail_rig = (INT *)calloc(relationTotal, sizeof(INT));
+    head_lef = (INT *) calloc(relationTotal, sizeof(INT));
+    head_rig = (INT *) calloc(relationTotal, sizeof(INT));
+    tail_lef = (INT *) calloc(relationTotal, sizeof(INT));
+    tail_rig = (INT *) calloc(relationTotal, sizeof(INT));
     INT total_lef = 0;
     INT total_rig = 0;
-    FILE* f_type = fopen((inPath + "type_constrain.txt").c_str(),"r");
+    FILE *f_type = fopen((inPath + "type_constrain.txt").c_str(), "r");
     INT tmp;
     tmp = fscanf(f_type, "%ld", &tmp);
     for (INT i = 0; i < relationTotal; i++) {
@@ -276,11 +359,11 @@ void importTypeFiles() {
         }
     }
     fclose(f_type);
-    head_type = (INT *)calloc(total_lef, sizeof(INT)); 
-    tail_type = (INT *)calloc(total_rig, sizeof(INT));
+    head_type = (INT *) calloc(total_lef, sizeof(INT));
+    tail_type = (INT *) calloc(total_rig, sizeof(INT));
     total_lef = 0;
     total_rig = 0;
-    f_type = fopen((inPath + "type_constrain.txt").c_str(),"r");
+    f_type = fopen((inPath + "type_constrain.txt").c_str(), "r");
     tmp = fscanf(f_type, "%ld", &tmp);
     for (INT i = 0; i < relationTotal; i++) {
         INT rel, tot;
