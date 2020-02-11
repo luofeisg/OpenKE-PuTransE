@@ -23,19 +23,6 @@ Triple *trainTail;
 Triple *trainRel;
 Triple *trainRel2;
 
-INT *freqRelUniverse, *freqEntUniverse;
-INT *lefHeadUniverse, *rigHeadUniverse;
-INT *lefTailUniverse, *rigTailUniverse;
-INT *lefRelUniverse, *rigRelUniverse;
-INT *lefRel2Universe, *rigRel2Universe;
-REAL *left_meanUniverse, *right_meanUniverse;
-
-Triple *trainListUniverse;
-Triple *trainHeadUniverse;
-Triple *trainTailUniverse;
-Triple *trainRelUniverse;
-Triple *trainRel2Universe;
-
 INT *testLef, *testRig;
 INT *validLef, *validRig;
 
@@ -66,24 +53,96 @@ void importProb(REAL temp) {
     fclose(fin);
 }
 
+
+void checkAllocations() {
+
+    if (trainTotal < 1)
+        std::cout << "trainTotal is: " << trainTotal << std::endl;
+
+    if (entityTotal < 1)
+        std::cout << "entityTotal is: " << entityTotal << std::endl;
+
+    if (relationTotal < 1)
+        std::cout << "relationTotal is: " << relationTotal << std::endl;
+
+    if (trainHead == NULL) {
+        std::cout << "trainHead was not allocated" << std::endl;
+        std::cout << "length is: " << trainTotal << std::endl;
+    }
+    if (trainTail == NULL) {
+        std::cout << "trainTail was not allocated" << std::endl;
+        std::cout << "length is: " << trainTotal << std::endl;
+    }
+    if (trainRel == NULL) {
+        std::cout << "trainRel was not allocated" << std::endl;
+        std::cout << "length is: " << trainTotal << std::endl;
+    }
+    if (trainRel2 == NULL) {
+        std::cout << "trainRel2 was not allocated" << std::endl;
+        std::cout << "length is: " << trainTotal << std::endl;
+    }
+    if (freqRel == NULL) {
+        std::cout << "freqRel was not allocated" << std::endl;
+        std::cout << "length is: " << relationTotal << std::endl;
+    }
+    if (freqEnt == NULL) {
+        std::cout << "freqEnt was not allocated" << std::endl;
+        std::cout << "length is: " << entityTotal << std::endl;
+    }
+    if (lefHead == NULL) {
+        std::cout << "lefHead was not allocated" << std::endl;
+        std::cout << "length is: " << entityTotal << std::endl;
+    }
+    if (rigHead == NULL) {
+        std::cout << "rigHead was not allocated" << std::endl;
+        std::cout << "length is: " << entityTotal << std::endl;
+    }
+    if (lefTail == NULL) {
+        std::cout << "lefTail was not allocated" << std::endl;
+        std::cout << "length is: " << entityTotal << std::endl;
+    }
+    if (rigTail == NULL) {
+        std::cout << "rigTail was not allocated" << std::endl;
+        std::cout << "length is: " << entityTotal << std::endl;
+    }
+    if (lefRel == NULL) {
+        std::cout << "lefRel was not allocated" << std::endl;
+        std::cout << "length is: " << entityTotal << std::endl;
+    }
+    if (rigRel == NULL) {
+        std::cout << "rigRel was not allocated" << std::endl;
+        std::cout << "length is: " << entityTotal << std::endl;
+    }
+    if (lefRel2 == NULL) {
+        std::cout << "lefRel2 was not allocated" << std::endl;
+        std::cout << "length is: " << relationTotal << std::endl;
+    }
+    if (rigRel2 == NULL) {
+        std::cout << "rigRel2 was not allocated" << std::endl;
+        std::cout << "length is: " << relationTotal << std::endl;
+    }
+}
+
 void initializeHelpers(
-    Triple * &trainList,
-    Triple * &trainHead,
-    Triple * &trainTail,
-    Triple * &trainRel,
-    Triple * &trainRel2,
-    INT * &freqRel,
-    INT * &freqEnt,
-    INT trainTotal,
-    INT * &lefHead,
-    INT * &rigHead,
-    INT * &lefTail,
-    INT * &rigTail,
-    INT * &lefRel,
-    INT * &rigRel,
-    INT * &lefRel2,
-    INT * &rigRel2
-    ) {
+        Triple *&trainList,
+        Triple *&trainHead,
+        Triple *&trainTail,
+        Triple *&trainRel,
+        Triple *&trainRel2,
+        INT *&freqRel,
+        INT *&freqEnt,
+        INT trainTotal,
+        INT *&lefHead,
+        INT *&rigHead,
+        INT *&lefTail,
+        INT *&rigTail,
+        INT *&lefRel,
+        INT *&rigRel,
+        INT *&lefRel2,
+        INT *&rigRel2,
+        REAL *&left_mean,
+        REAL *&right_mean
+) {
     std::sort(trainList, trainList + trainTotal, Triple::cmp_head);
     std::set<INT> entity_set;
     std::set<INT> relation_set;
@@ -102,6 +161,16 @@ void initializeHelpers(
     trainRel2 = (Triple *) calloc(trainTotal, sizeof(Triple));
     freqRel = (INT *) calloc(relationTotal, sizeof(INT));
     freqEnt = (INT *) calloc(entityTotal, sizeof(INT));
+    lefHead = (INT *) calloc(entityTotal, sizeof(INT));
+    rigHead = (INT *) calloc(entityTotal, sizeof(INT));
+
+    lefTail = (INT *) calloc(entityTotal, sizeof(INT));
+    rigTail = (INT *) calloc(entityTotal, sizeof(INT));
+    lefRel = (INT *) calloc(entityTotal, sizeof(INT));
+    rigRel = (INT *) calloc(entityTotal, sizeof(INT));
+    lefRel2 = (INT *) calloc(entityTotal, sizeof(INT));
+    rigRel2 = (INT *) calloc(relationTotal, sizeof(INT));
+    checkAllocations();
 
     trainHead[0] = trainTail[0] = trainRel[0] = trainRel2[0] = trainList[0];
     freqEnt[trainList[0].t] += 1;
@@ -118,18 +187,14 @@ void initializeHelpers(
     std::sort(trainTail, trainTail + trainTotal, Triple::cmp_tail);
     std::sort(trainRel, trainRel + trainTotal, Triple::cmp_rel);
     std::sort(trainRel2, trainRel2 + trainTotal, Triple::cmp_rel2);
+    std::cout << "Init2" << std::endl;
 
-    lefHead = (INT *) calloc(entityTotal, sizeof(INT));
-    rigHead = (INT *) calloc(entityTotal, sizeof(INT));
-    lefTail = (INT *) calloc(entityTotal, sizeof(INT));
-    rigTail = (INT *) calloc(entityTotal, sizeof(INT));
-    lefRel = (INT *) calloc(entityTotal, sizeof(INT));
-    rigRel = (INT *) calloc(entityTotal, sizeof(INT));
-    lefRel2 = (INT *) calloc(entityTotal, sizeof(INT));
-    rigRel2 = (INT *) calloc(entityTotal, sizeof(INT));
+
     memset(rigHead, -1, sizeof(INT) * entityTotal);
     memset(rigTail, -1, sizeof(INT) * entityTotal);
     memset(rigRel, -1, sizeof(INT) * entityTotal);
+    memset(rigRel2, -1, sizeof(INT) * relationTotal);
+    std::cout << "Init3" << std::endl;
     for (INT i = 1; i < trainTotal; i++) {
         if (trainTail[i].t != trainTail[i - 1].t) {
             rigTail[trainTail[i - 1].t] = i - 1;
@@ -148,6 +213,7 @@ void initializeHelpers(
             lefRel2[trainRel2[i].r] = i;
         }
     }
+    std::cout << "Init4" << std::endl;
     lefHead[trainHead[0].h] = 0;
     rigHead[trainHead[trainTotal - 1].h] = trainTotal - 1;
     lefTail[trainTail[0].t] = 0;
@@ -156,7 +222,7 @@ void initializeHelpers(
     rigRel[trainRel[trainTotal - 1].h] = trainTotal - 1;
     lefRel2[trainRel2[0].r] = 0;
     rigRel2[trainRel2[trainTotal - 1].r] = trainTotal - 1;
-
+    std::cout << "Init5" << std::endl;
     left_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
     right_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
     for (INT i = 0; i < entityTotal; i++) {
@@ -175,7 +241,7 @@ void initializeHelpers(
         left_mean[i] = freqRel[i] / left_mean[i];
         right_mean[i] = freqRel[i] / right_mean[i];
     }
-    printf("head ent %ld.\n", trainHead[trainTotal-1].h);
+    std::cout << "Init6" << std::endl;
 }
 
 extern "C"
@@ -232,17 +298,12 @@ void importTrainFiles() {
             lefRel,
             rigRel,
             lefRel2,
-            rigRel2
+            rigRel2,
+            left_mean,
+            right_mean
     );
-    printf("head ent %ld.\n", trainHead[trainTotal-1].h);
-/*
-    for (INT i = 0; i < trainTotal; i++) {
-        printf("head ent %ld.\n", trainHead[i].h);
-        printf("rel %ld.\n", trainHead[i].r);
-        printf("tail %ld.\n", trainHead[i].t);
-        printf("--------------------------\n");
-    }
-*/
+
+
 }
 
 Triple *testList;

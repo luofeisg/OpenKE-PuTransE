@@ -2,13 +2,12 @@
 #include "Triple.h"
 #include "Random.h"
 #include "Reader.h"
+#include "ParallelUniverse.h"
 #include "Corrupt.h"
 #include "Test.h"
 #include <cstdlib>
 #include <set>
 #include <pthread.h>
-
-Triple *universeTrainList;
 
 extern "C"
 void setInPath(char *path);
@@ -29,6 +28,9 @@ extern "C"
 INT getEntityTotal();
 
 extern "C"
+INT getEntityTotalUniverse();
+
+extern "C"
 INT getRelationTotal();
 
 extern "C"
@@ -36,6 +38,9 @@ INT getTripleTotal();
 
 extern "C"
 INT getTrainTotal();
+
+extern "C"
+INT getTrainTotalUniverse();
 
 extern "C"
 INT getTestTotal();
@@ -47,10 +52,42 @@ extern "C"
 void randReset();
 
 extern "C"
-INT randBetween(INT a, INT b);
+void initializeSingleRandomSeed();
 
 extern "C"
 void importTrainFiles();
+
+extern "C"
+void printTrainHeadUniverse();
+
+extern "C"
+void getTrainUniverse(
+        INT *head,
+        INT *relation,
+        INT *tail
+);
+
+extern "C"
+void printTrainUniverse();
+
+extern "C"
+void getParallelUniverse(
+        INT *headList,
+        INT *relList,
+        INT *tailList,
+        INT *entity_remapping,
+        INT *relation_remapping,
+        INT triple_constraint,
+        REAL balance_parameter,
+        INT relation);
+
+extern "C"
+void swapHelpers();
+
+extern "C"
+void resetUniverse();
+
+
 
 struct Parameter {
     INT id;
@@ -188,190 +225,60 @@ void sampling(
 
 
 extern "C"
-void getParallelUniverse(
+void getTrainingTriples(
         INT *headList,
         INT *relList,
-        INT *tailList,
-        INT triple_constraint,
-        REAL balance_parameter
+        INT *tailList
 ) {
-    universeTrainList = (Triple *) calloc(triple_constraint, sizeof(Triple));
-    //INT relation_focus = 160;
-    INT relation_focus = randBetween(0, relationTotal); //sample relation r from R
-    std::cout << "relational focus is: " << relation_focus << std::endl;
-
-    INT semantic_threshold =
-            balance_parameter * triple_constraint; // calculate threshold for selection of relevant entities
-    REAL prob = 500;
-
-    //Gather relevant entities
-    INT left_index = lefRel2[relation_focus];
-    INT right_index = rigRel2[relation_focus];
-    std::set<INT> entity_set;
-    std::set<INT> tmp_set;
-    std::set<INT>::iterator it;
-
-    for (int idx = left_index; idx < right_index + 1; idx++) {
-        entity_set.insert(trainRel2[idx].h);
-        entity_set.insert(trainRel2[idx].t);
+    for (int i = 0; i < trainTotal; i++) {
+        headList[i] = trainList[i].h;
+        relList[i] = trainList[i].r;
+        tailList[i] = trainList[i].t;
     }
-
-    // pick random subset
-    if (entity_set.size() > semantic_threshold) {
-        std::set<INT>::iterator random_entity;
-        INT num_sub = 0;
-        while (tmp_set.size() < semantic_threshold) {
-            random_entity = entity_set.begin();
-            std::advance(random_entity, rand() % entity_set.size());
-            tmp_set.insert(*random_entity);
-            entity_set.erase(random_entity);
-        }
-        entity_set.swap(tmp_set);
-        tmp_set.clear();
-    }
-
-
-    std::cout << "relevant entities " << entity_set.size() << std::endl;
-
-    INT num = 0;
-    INT tmp_index = 0;
-    INT entity = 0;
-    bool duplicate = false;
-    INT new_head = 0;
-    INT new_rel = 0;
-    INT new_tail = 0;
-
-    std::set<INT> universe_entities;
-    std::set<INT> universe_relations;
-    universe_entities.insert(entity_set.begin(), entity_set.end());
-
-    while (num < triple_constraint) {
-        for (it = entity_set.begin(); it != entity_set.end() && num < triple_constraint;) {
-            entity = *it;
-            if (rand() % 1000 < prob) {
-                head:
-                if (rigHead[entity] != -1) {
-                    tmp_index = randBetween(lefHead[entity], rigHead[entity] + 1);
-                    new_head = trainHead[tmp_index].h;
-                    new_rel = trainHead[tmp_index].r;
-                    new_tail = trainHead[tmp_index].t;
-
-                    tmp_set.insert(new_tail);
-                    universe_entities.insert(new_tail);
-                    universe_relations.insert(new_rel);
-                } else {
-                    goto tail;
-                }
-            } else {
-                tail:
-                if (rigTail[entity] != -1) {
-                    tmp_index = randBetween(lefTail[entity], rigTail[entity] + 1);
-                    new_head = trainTail[tmp_index].h;
-                    new_rel = trainTail[tmp_index].r;
-                    new_tail = trainTail[tmp_index].t;
-
-                    tmp_set.insert(new_head);
-                    universe_entities.insert(new_head);
-                    universe_relations.insert(new_rel);
-                } else {
-                    goto head;
-                }
-            }
-            for (int i = 0; i < num; i++) {
-                if (new_head == headList[i] && new_rel == relList[i] && new_tail == tailList[i]) {
-                    duplicate = true;
-                }
-            }
-            if (duplicate) {
-                duplicate = false;
-                it++;
-                continue;
-            }
-            headList[num] = new_head;
-            relList[num] = new_rel;
-            tailList[num] = new_tail;
-            universeTrainList[num].h = new_head;
-            universeTrainList[num].r = new_rel;
-            universeTrainList[num].t = new_tail;
-            entity_set.erase(it++);
-            num++;
-        }
-        entity_set.swap(tmp_set);
-    }
-
-    INT *entity_mapping = (INT *) calloc(universe_entities.size(), sizeof(INT));
-    INT *relation_mapping = (INT *) calloc(universe_relations.size(), sizeof(INT));
-    memset(entity_mapping, -1, sizeof(INT) * universe_entities.size());
-    memset(relation_mapping, -1, sizeof(INT) * universe_relations.size());
-/*
-    INT *entity_remapping = (INT *) calloc(universe_entities.size(), sizeof(INT));
-    INT *relation_remapping = (INT *) calloc(universe_relations.size(), sizeof(INT));
-    memset(entity_remapping, -1, sizeof(INT) * universe_entities.size());
-    memset(relation_remapping, -1, sizeof(INT) * universe_relations.size());
-*/
-    INT next_entity_id = 0;
-    INT next_relation_id = 0;
-
-    for (int i = 0; i < triple_constraint; i++) {
-        if (entity_mapping[universeTrainList[i].h] == -1) {
-            entity_mapping[universeTrainList[i].h] = next_entity_id;
-            //entity_remapping[next_entity_id] = universeTrainList[i].h;
-            next_entity_id++;
-        }
-        universeTrainList[i].h = entity_mapping[universeTrainList[i].h];
-
-        if (entity_mapping[universeTrainList[i].t] == -1) {
-            entity_mapping[universeTrainList[i].t] = next_entity_id;
-            //entity_remapping[next_entity_id] = universeTrainList[i].t;
-            next_entity_id++;
-        }
-        universeTrainList[i].t = entity_mapping[universeTrainList[i].t];
-
-        if (relation_mapping[universeTrainList[i].r] == -1) {
-            relation_mapping[universeTrainList[i].r] = next_relation_id;
-            //relation_remapping[next_relation_id] = universeTrainList[i].r;
-            next_relation_id++;
-        }
-        universeTrainList[i].r = relation_mapping[universeTrainList[i].r];
-    }
-
-
-/*
-    std::set<INT> test_entities;
-    std::set<INT> test_relations;
-    for (int i = 0; i < triple_constraint; i++) {
-        test_entities.insert(universeTrainList[i].h);
-        test_entities.insert(universeTrainList[i].t);
-        test_relations.insert(universeTrainList[i].r);
-    }
-    std::cout << "num entities iter " << universe_entities.size() << std::endl;
-    std::cout << "num entities test " << test_entities.size() << std::endl;
-    std::cout << "num relations iter " << universe_relations.size() << std::endl;
-    std::cout << "num relations test " << test_relations.size() << std::endl;
-    std::cout << "num relations test " << test_relations.size() << std::endl;
-*/
-    //enumerate
-/*
-    initializeHelpers(
-            universeTrainList,
-            trainHeadUniverse,
-            trainTailUniverse,
-            trainRelUniverse,
-            trainRel2Universe,
-            freqRelUniverse,
-            freqEntUniverse,
-            triple_constraint,
-            lefHeadUniverse,
-            rigHeadUniverse,
-            lefTailUniverse,
-            rigTailUniverse,
-            lefRelUniverse,
-            rigRelUniverse,
-            lefRel2Universe,
-            rigRel2Universe
-    );
-*/
 }
+
+extern "C"
+void getUniverseTrainingTriples(
+        INT *headList,
+        INT *relList,
+        INT *tailList
+) {
+    for (int i = 0; i < trainTotalUniverse; i++) {
+        headList[i] = trainListUniverse[i].h;
+        relList[i] = trainListUniverse[i].r;
+        tailList[i] = trainListUniverse[i].t;
+    }
+}
+
+extern "C"
+void checkUniverseTrainingTriples() {
+    INT num_of_no_entry = 0;
+    bool no_entry;
+    for (int i = 0; i < trainTotalUniverse; i++) {
+
+        no_entry = true;
+        INT head = trainListUniverse[i].h;
+        INT rel = trainListUniverse[i].r;
+        INT tail = trainListUniverse[i].t;
+
+        for (int j = 0; j < trainTotal; j++) {
+            if (head == trainList[j].h && rel == trainList[j].r && tail == trainList[j].t) {
+                no_entry = false;
+                break;
+            }
+        }
+        if (no_entry == true) {
+            num_of_no_entry++;
+            no_entry = false;
+            std::cout << "Head: " << head << "\n";
+            std::cout << "Tail: " << tail << "\n";
+            std::cout << "Rel: " << rel << "\n";
+            std::cout << "------" << rel << "\n";
+        }
+    }
+    std::cout << "Not found triples: " << num_of_no_entry << ".";
+}
+
 
 int main() {
     importTrainFiles();

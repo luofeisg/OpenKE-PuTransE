@@ -3,9 +3,6 @@
 #include "Setting.h"
 #include <cstdlib>
 
-// variable for initially setting random seed
-bool first = true;
-
 // the random seeds for all threads.
 unsigned long long *next_random;
 
@@ -37,11 +34,7 @@ INT rand(INT a, INT b){
 }
 
 extern "C"
-INT randBetween(INT a, INT b){
-	if (first){
-	    srand(time(0));
-	    first = false;
-	}
-	return (rand() % (b-a))+ a;
+void initializeSingleRandomSeed(){
+    srand(time(0));
 }
 #endif

@@ -46,9 +46,19 @@ class TrainDataLoader(object):
 			ctypes.c_void_p,
 			ctypes.c_void_p,
 			ctypes.c_void_p,
+			ctypes.c_void_p,
+			ctypes.c_void_p,
 			ctypes.c_int64,
 			ctypes.c_float,
+			ctypes.c_int64
 		]
+
+		self.lib.getTrainUniverse.argtypes = [
+			ctypes.c_void_p,
+			ctypes.c_void_p,
+			ctypes.c_void_p
+		]
+
 		"""set essential parameters"""
 		self.in_path = in_path
 		self.work_threads = threads
