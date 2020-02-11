@@ -53,193 +53,150 @@ void importProb(REAL temp) {
     fclose(fin);
 }
 
+void checkAllocationTripleArray(Triple *&ptr, INT len) {
+    if (ptr == NULL) {
+        std::cout << "ptr was not allocated" << std::endl;
+        std::cout << "length is: " << len << std::endl;
+    }
+}
 
-void checkAllocations() {
+void checkAllocationINTarray(INT *&ptr, INT len) {
+    if (ptr == NULL) {
+        std::cout << "ptr was not allocated" << std::endl;
+        std::cout << "length is: " << len << std::endl;
+    }
+}
+extern "C"
+void printTrainHead() {
+    for (int n = 0; n < trainTotal; n++) {
+        std::cout << "trainHead" << trainHead[n].h << "," << trainHead[n].r << ", "
+                  << trainHead[n].t << ". " << std::endl;
 
-    if (trainTotal < 1)
-        std::cout << "trainTotal is: " << trainTotal << std::endl;
-
-    if (entityTotal < 1)
-        std::cout << "entityTotal is: " << entityTotal << std::endl;
-
-    if (relationTotal < 1)
-        std::cout << "relationTotal is: " << relationTotal << std::endl;
-
-    if (trainHead == NULL) {
-        std::cout << "trainHead was not allocated" << std::endl;
-        std::cout << "length is: " << trainTotal << std::endl;
-    }
-    if (trainTail == NULL) {
-        std::cout << "trainTail was not allocated" << std::endl;
-        std::cout << "length is: " << trainTotal << std::endl;
-    }
-    if (trainRel == NULL) {
-        std::cout << "trainRel was not allocated" << std::endl;
-        std::cout << "length is: " << trainTotal << std::endl;
-    }
-    if (trainRel2 == NULL) {
-        std::cout << "trainRel2 was not allocated" << std::endl;
-        std::cout << "length is: " << trainTotal << std::endl;
-    }
-    if (freqRel == NULL) {
-        std::cout << "freqRel was not allocated" << std::endl;
-        std::cout << "length is: " << relationTotal << std::endl;
-    }
-    if (freqEnt == NULL) {
-        std::cout << "freqEnt was not allocated" << std::endl;
-        std::cout << "length is: " << entityTotal << std::endl;
-    }
-    if (lefHead == NULL) {
-        std::cout << "lefHead was not allocated" << std::endl;
-        std::cout << "length is: " << entityTotal << std::endl;
-    }
-    if (rigHead == NULL) {
-        std::cout << "rigHead was not allocated" << std::endl;
-        std::cout << "length is: " << entityTotal << std::endl;
-    }
-    if (lefTail == NULL) {
-        std::cout << "lefTail was not allocated" << std::endl;
-        std::cout << "length is: " << entityTotal << std::endl;
-    }
-    if (rigTail == NULL) {
-        std::cout << "rigTail was not allocated" << std::endl;
-        std::cout << "length is: " << entityTotal << std::endl;
-    }
-    if (lefRel == NULL) {
-        std::cout << "lefRel was not allocated" << std::endl;
-        std::cout << "length is: " << entityTotal << std::endl;
-    }
-    if (rigRel == NULL) {
-        std::cout << "rigRel was not allocated" << std::endl;
-        std::cout << "length is: " << entityTotal << std::endl;
-    }
-    if (lefRel2 == NULL) {
-        std::cout << "lefRel2 was not allocated" << std::endl;
-        std::cout << "length is: " << relationTotal << std::endl;
-    }
-    if (rigRel2 == NULL) {
-        std::cout << "rigRel2 was not allocated" << std::endl;
-        std::cout << "length is: " << relationTotal << std::endl;
     }
 }
 
 void initializeHelpers(
-        Triple *&trainList,
-        Triple *&trainHead,
-        Triple *&trainTail,
-        Triple *&trainRel,
-        Triple *&trainRel2,
-        INT *&freqRel,
-        INT *&freqEnt,
-        INT trainTotal,
-        INT *&lefHead,
-        INT *&rigHead,
-        INT *&lefTail,
-        INT *&rigTail,
-        INT *&lefRel,
-        INT *&rigRel,
-        INT *&lefRel2,
-        INT *&rigRel2,
-        REAL *&left_mean,
-        REAL *&right_mean
+        Triple *&trainingList,
+        Triple *&trainingListHead,
+        Triple *&trainingListTail,
+        Triple *&trainingListRel,
+        Triple *&trainingListRel2,
+        INT *&frequencyRelation,
+        INT *&frequencyEntity,
+        INT trainingTotal,
+        INT *&leftIndexHead,
+        INT *&rightIndexHead,
+        INT *&leftIndexTail,
+        INT *&rightIndexTail,
+        INT *&leftIndexRelation,
+        INT *&rightIndexRelation,
+        INT *&leftIndexRelation2,
+        INT *&rightIndexRelation2,
+        REAL *&leftIndex_mean,
+        REAL *&rightIndex_mean
 ) {
-    std::sort(trainList, trainList + trainTotal, Triple::cmp_head);
+    std::sort(trainingList, trainingList + trainingTotal, Triple::cmp_head);
     std::set<INT> entity_set;
     std::set<INT> relation_set;
 
-    for (INT i = 1; i < trainTotal; i++) {
-        entity_set.insert(trainList[i].h);
-        entity_set.insert(trainList[i].t);
-        relation_set.insert(trainList[i].r);
+    for (INT i = 1; i < trainingTotal; i++) {
+        entity_set.insert(trainingList[i].h);
+        entity_set.insert(trainingList[i].t);
+        relation_set.insert(trainingList[i].r);
     }
     INT entityTotal = entity_set.size();
     INT relationTotal = relation_set.size();
 
-    trainHead = (Triple *) calloc(trainTotal, sizeof(Triple));
-    trainTail = (Triple *) calloc(trainTotal, sizeof(Triple));
-    trainRel = (Triple *) calloc(trainTotal, sizeof(Triple));
-    trainRel2 = (Triple *) calloc(trainTotal, sizeof(Triple));
-    freqRel = (INT *) calloc(relationTotal, sizeof(INT));
-    freqEnt = (INT *) calloc(entityTotal, sizeof(INT));
-    lefHead = (INT *) calloc(entityTotal, sizeof(INT));
-    rigHead = (INT *) calloc(entityTotal, sizeof(INT));
+    trainingListHead = (Triple *) calloc(trainingTotal, sizeof(Triple));
+    checkAllocationTripleArray(trainingListHead, trainingTotal);
+    trainingListTail = (Triple *) calloc(trainingTotal, sizeof(Triple));
+    checkAllocationTripleArray(trainingListTail, trainingTotal);
+    trainingListRel = (Triple *) calloc(trainingTotal, sizeof(Triple));
+    checkAllocationTripleArray(trainingListRel, trainingTotal);
+    trainingListRel2 = (Triple *) calloc(trainingTotal, sizeof(Triple));
+    checkAllocationTripleArray(trainingListRel2, trainingTotal);
 
-    lefTail = (INT *) calloc(entityTotal, sizeof(INT));
-    rigTail = (INT *) calloc(entityTotal, sizeof(INT));
-    lefRel = (INT *) calloc(entityTotal, sizeof(INT));
-    rigRel = (INT *) calloc(entityTotal, sizeof(INT));
-    lefRel2 = (INT *) calloc(entityTotal, sizeof(INT));
-    rigRel2 = (INT *) calloc(relationTotal, sizeof(INT));
-    checkAllocations();
+    frequencyRelation = (INT *) calloc(relationTotal, sizeof(INT));
+    frequencyEntity = (INT *) calloc(entityTotal, sizeof(INT));
+    leftIndexHead = (INT *) calloc(entityTotal, sizeof(INT));
+    rightIndexHead = (INT *) calloc(entityTotal, sizeof(INT));
 
-    trainHead[0] = trainTail[0] = trainRel[0] = trainRel2[0] = trainList[0];
-    freqEnt[trainList[0].t] += 1;
-    freqEnt[trainList[0].h] += 1;
-    freqRel[trainList[0].r] += 1;
+    leftIndexTail = (INT *) calloc(entityTotal, sizeof(INT));
+    rightIndexTail = (INT *) calloc(entityTotal, sizeof(INT));
+    leftIndexRelation = (INT *) calloc(entityTotal, sizeof(INT));
+    rightIndexRelation = (INT *) calloc(entityTotal, sizeof(INT));
+    leftIndexRelation2 = (INT *) calloc(entityTotal, sizeof(INT));
+    rightIndexRelation2 = (INT *) calloc(relationTotal, sizeof(INT));
 
-    for (INT i = 1; i < trainTotal; i++) {
-        trainHead[i] = trainTail[i] = trainRel[i] = trainRel2[i] = trainList[i];
-        freqEnt[trainList[i].t]++;
-        freqEnt[trainList[i].h]++;
-        freqRel[trainList[i].r]++;
+
+    trainingListHead[0] = trainingListTail[0] = trainingListRel[0] = trainingListRel2[0] = trainingList[0];
+    frequencyEntity[trainingList[0].t] += 1;
+    frequencyEntity[trainingList[0].h] += 1;
+    frequencyRelation[trainingList[0].r] += 1;
+
+    for (INT i = 1; i < trainingTotal; i++) {
+        trainingListHead[i] = trainingListTail[i] = trainingListRel[i] = trainingListRel2[i] = trainingList[i];
+        frequencyEntity[trainingList[i].t]++;
+        frequencyEntity[trainingList[i].h]++;
+        frequencyRelation[trainList[i].r]++;
     }
-    std::sort(trainHead, trainHead + trainTotal, Triple::cmp_head);
-    std::sort(trainTail, trainTail + trainTotal, Triple::cmp_tail);
-    std::sort(trainRel, trainRel + trainTotal, Triple::cmp_rel);
-    std::sort(trainRel2, trainRel2 + trainTotal, Triple::cmp_rel2);
+    std::sort(trainingListHead, trainingListHead + trainingTotal, Triple::cmp_head);
+    std::sort(trainingListTail, trainingListTail + trainingTotal, Triple::cmp_tail);
+    std::sort(trainingListRel, trainingListRel + trainingTotal, Triple::cmp_rel);
+    std::sort(trainingListRel2, trainingListRel2 + trainingTotal, Triple::cmp_rel2);
     std::cout << "Init2" << std::endl;
 
 
-    memset(rigHead, -1, sizeof(INT) * entityTotal);
-    memset(rigTail, -1, sizeof(INT) * entityTotal);
-    memset(rigRel, -1, sizeof(INT) * entityTotal);
-    memset(rigRel2, -1, sizeof(INT) * relationTotal);
+    memset(rightIndexHead, -1, sizeof(INT) * entityTotal);
+    memset(rightIndexTail, -1, sizeof(INT) * entityTotal);
+    memset(rightIndexRelation, -1, sizeof(INT) * entityTotal);
+    memset(rightIndexRelation2, -1, sizeof(INT) * relationTotal);
     std::cout << "Init3" << std::endl;
-    for (INT i = 1; i < trainTotal; i++) {
-        if (trainTail[i].t != trainTail[i - 1].t) {
-            rigTail[trainTail[i - 1].t] = i - 1;
-            lefTail[trainTail[i].t] = i;
+    for (INT i = 1; i < trainingTotal; i++) {
+        if (trainingListTail[i].t != trainingListTail[i - 1].t) {
+            rightIndexTail[trainingListTail[i - 1].t] = i - 1;
+            leftIndexTail[trainingListTail[i].t] = i;
         }
-        if (trainHead[i].h != trainHead[i - 1].h) {
-            rigHead[trainHead[i - 1].h] = i - 1;
-            lefHead[trainHead[i].h] = i;
+        if (trainingListHead[i].h != trainingListHead[i - 1].h) {
+            rightIndexHead[trainingListHead[i - 1].h] = i - 1;
+            leftIndexHead[trainingListHead[i].h] = i;
         }
-        if (trainRel[i].h != trainRel[i - 1].h) {
-            rigRel[trainRel[i - 1].h] = i - 1;
-            lefRel[trainRel[i].h] = i;
+        if (trainingListRel[i].h != trainingListRel[i - 1].h) {
+            rightIndexRelation[trainingListRel[i - 1].h] = i - 1;
+            leftIndexRelation[trainingListRel[i].h] = i;
         }
-        if (trainRel2[i].r != trainRel2[i - 1].r) {
-            rigRel2[trainRel2[i - 1].r] = i - 1;
-            lefRel2[trainRel2[i].r] = i;
+        if (trainingListRel2[i].r != trainingListRel2[i - 1].r) {
+            rightIndexRelation2[trainingListRel2[i - 1].r] = i - 1;
+            leftIndexRelation2[trainingListRel2[i].r] = i;
         }
     }
     std::cout << "Init4" << std::endl;
-    lefHead[trainHead[0].h] = 0;
-    rigHead[trainHead[trainTotal - 1].h] = trainTotal - 1;
-    lefTail[trainTail[0].t] = 0;
-    rigTail[trainTail[trainTotal - 1].t] = trainTotal - 1;
-    lefRel[trainRel[0].h] = 0;
-    rigRel[trainRel[trainTotal - 1].h] = trainTotal - 1;
-    lefRel2[trainRel2[0].r] = 0;
-    rigRel2[trainRel2[trainTotal - 1].r] = trainTotal - 1;
+    leftIndexHead[trainingListHead[0].h] = 0;
+    rightIndexHead[trainingListHead[trainingTotal - 1].h] = trainingTotal - 1;
+    leftIndexTail[trainingListTail[0].t] = 0;
+    rightIndexTail[trainingListTail[trainingTotal - 1].t] = trainingTotal - 1;
+    leftIndexRelation[trainingListRel[0].h] = 0;
+    rightIndexRelation[trainingListRel[trainingTotal - 1].h] = trainingTotal - 1;
+    leftIndexRelation2[trainingListRel2[0].r] = 0;
+    rightIndexRelation2[trainingListRel2[trainingTotal - 1].r] = trainingTotal - 1;
     std::cout << "Init5" << std::endl;
-    left_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
-    right_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
+    leftIndex_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
+    rightIndex_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
     for (INT i = 0; i < entityTotal; i++) {
-        for (INT j = lefHead[i] + 1; j <= rigHead[i]; j++)
-            if (trainHead[j].r != trainHead[j - 1].r)
-                left_mean[trainHead[j].r] += 1.0;
-        if (lefHead[i] <= rigHead[i])
-            left_mean[trainHead[lefHead[i]].r] += 1.0;
-        for (INT j = lefTail[i] + 1; j <= rigTail[i]; j++)
-            if (trainTail[j].r != trainTail[j - 1].r)
-                right_mean[trainTail[j].r] += 1.0;
-        if (lefTail[i] <= rigTail[i])
-            right_mean[trainTail[lefTail[i]].r] += 1.0;
+        for (INT j = leftIndexHead[i] + 1; j <= rightIndexHead[i]; j++)
+            if (trainingListHead[j].r != trainingListHead[j - 1].r)
+                leftIndex_mean[trainingListHead[j].r] += 1.0;
+        if (leftIndexHead[i] <= rightIndexHead[i])
+            leftIndex_mean[trainingListHead[leftIndexHead[i]].r] += 1.0;
+        for (INT j = leftIndexTail[i] + 1; j <= rightIndexTail[i]; j++)
+            if (trainingListTail[j].r != trainingListTail[j - 1].r)
+                rightIndex_mean[trainingListTail[j].r] += 1.0;
+        if (leftIndexTail[i] <= rightIndexTail[i])
+            rightIndex_mean[trainingListTail[leftIndexTail[i]].r] += 1.0;
     }
     for (INT i = 0; i < relationTotal; i++) {
-        left_mean[i] = freqRel[i] / left_mean[i];
-        right_mean[i] = freqRel[i] / right_mean[i];
+        leftIndex_mean[i] = frequencyRelation[i] / leftIndex_mean[i];
+        rightIndex_mean[i] = frequencyRelation[i] / rightIndex_mean[i];
     }
     std::cout << "Init6" << std::endl;
 }

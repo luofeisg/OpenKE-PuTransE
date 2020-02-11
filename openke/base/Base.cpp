@@ -58,7 +58,10 @@ extern "C"
 void importTrainFiles();
 
 extern "C"
-void printTrainHeadUniverse();
+void printTrainListUniverse();
+
+extern "C"
+void printTrainHead();
 
 extern "C"
 void getTrainUniverse(
@@ -86,8 +89,6 @@ void swapHelpers();
 
 extern "C"
 void resetUniverse();
-
-
 
 struct Parameter {
     INT id;
@@ -278,7 +279,6 @@ void checkUniverseTrainingTriples() {
     }
     std::cout << "Not found triples: " << num_of_no_entry << ".";
 }
-
 
 int main() {
     importTrainFiles();
