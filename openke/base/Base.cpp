@@ -2,12 +2,17 @@
 #include "Triple.h"
 #include "Random.h"
 #include "Reader.h"
-#include "ParallelUniverse.h"
 #include "Corrupt.h"
 #include "Test.h"
+#include "UniverseSetting.h"
+#include "UniverseConstructor.h"
 #include <cstdlib>
 #include <set>
 #include <pthread.h>
+
+/*
+===============Setting.h===============
+*/
 
 extern "C"
 void setInPath(char *path);
@@ -28,9 +33,6 @@ extern "C"
 INT getEntityTotal();
 
 extern "C"
-INT getEntityTotalUniverse();
-
-extern "C"
 INT getRelationTotal();
 
 extern "C"
@@ -40,13 +42,14 @@ extern "C"
 INT getTrainTotal();
 
 extern "C"
-INT getTrainTotalUniverse();
-
-extern "C"
 INT getTestTotal();
 
 extern "C"
 INT getValidTotal();
+
+/*
+===============Random.h===============
+*/
 
 extern "C"
 void randReset();
@@ -54,32 +57,38 @@ void randReset();
 extern "C"
 void initializeSingleRandomSeed();
 
-extern "C"
-void importTrainFiles();
+/*
+===============Reader.h===============
+*/
 
 extern "C"
-void printTrainListUniverse();
+void importTrainFiles();
 
 extern "C"
 void printTrainHead();
 
 extern "C"
-void getTrainUniverse(
-        INT *head,
-        INT *relation,
-        INT *tail
+void getTrainingTriples(
+        INT *headList,
+        INT *relList,
+        INT *tailList
 );
 
+/*
+===============ParallelUniverse.h===============
+*/
+
 extern "C"
-void printTrainUniverse();
+INT getEntityTotalUniverse();
+
+extern "C"
+INT getTrainTotalUniverse();
+
+extern "C"
+INT getRelationTotalUniverse();
 
 extern "C"
 void getParallelUniverse(
-        INT *headList,
-        INT *relList,
-        INT *tailList,
-        INT *entity_remapping,
-        INT *relation_remapping,
         INT triple_constraint,
         REAL balance_parameter,
         INT relation);
@@ -89,6 +98,13 @@ void swapHelpers();
 
 extern "C"
 void resetUniverse();
+
+extern "C"
+void enableChecks();
+
+/*
+================================================
+*/
 
 struct Parameter {
     INT id;
@@ -222,65 +238,81 @@ void sampling(
 
     free(pt);
     free(para);
-}
-
-
-extern "C"
-void getTrainingTriples(
-        INT *headList,
-        INT *relList,
-        INT *tailList
-) {
-    for (int i = 0; i < trainTotal; i++) {
-        headList[i] = trainList[i].h;
-        relList[i] = trainList[i].r;
-        tailList[i] = trainList[i].t;
-    }
-}
-
-extern "C"
-void getUniverseTrainingTriples(
-        INT *headList,
-        INT *relList,
-        INT *tailList
-) {
-    for (int i = 0; i < trainTotalUniverse; i++) {
-        headList[i] = trainListUniverse[i].h;
-        relList[i] = trainListUniverse[i].r;
-        tailList[i] = trainListUniverse[i].t;
-    }
-}
-
-extern "C"
-void checkUniverseTrainingTriples() {
-    INT num_of_no_entry = 0;
-    bool no_entry;
-    for (int i = 0; i < trainTotalUniverse; i++) {
-
-        no_entry = true;
-        INT head = trainListUniverse[i].h;
-        INT rel = trainListUniverse[i].r;
-        INT tail = trainListUniverse[i].t;
-
-        for (int j = 0; j < trainTotal; j++) {
-            if (head == trainList[j].h && rel == trainList[j].r && tail == trainList[j].t) {
-                no_entry = false;
-                break;
-            }
-        }
-        if (no_entry == true) {
-            num_of_no_entry++;
-            no_entry = false;
-            std::cout << "Head: " << head << "\n";
-            std::cout << "Tail: " << tail << "\n";
-            std::cout << "Rel: " << rel << "\n";
-            std::cout << "------" << rel << "\n";
-        }
-    }
-    std::cout << "Not found triples: " << num_of_no_entry << ".";
+    
+    if (checkOn)
+        checkSampling(batch_h, batch_t, batch_r, batch_y, trainListUniverse, trainTotal, batchSize);
 }
 
 int main() {
+    /* Python Input */
+    inPath = "../../benchmarks/FB15K237/";
+    setBern(1);
+    setWorkThreads(8);
+    randReset();
+    initializeSingleRandomSeed();
     importTrainFiles();
+
+    for(INT i = 0;i<6;i++){    
+        for(INT i = 0;i<relationTotal;i++){
+            INT triple_constraint = rand(500, 1000);
+            
+            getParallelUniverse(triple_constraint, 0.5, i);
+            swapHelpers();
+
+            int batch_size = 64;
+            int negative_rate = 1;
+            int negative_relation_rate = 0;
+            int batch_seq_size = batch_size * (1 + negative_rate + negative_relation_rate);
+
+            INT *batch_head = (INT*) calloc (batch_seq_size, sizeof(INT));
+            INT *batch_rel = (INT*) calloc (batch_seq_size, sizeof(INT));
+            INT *batch_tail = (INT*) calloc (batch_seq_size, sizeof(INT));
+            REAL *batch_truth = (REAL*) calloc (batch_seq_size, sizeof(REAL));
+
+            enableChecks();
+            sampling(
+                batch_head,
+                batch_tail,
+                batch_rel,
+                batch_truth,
+                batch_size,
+                negative_rate,
+                negative_relation_rate,
+                0,
+                true,
+                false,
+                false);
+            
+            resetUniverse();
+        }
+    }
+    // INT semantic_focus = rand(0,relationTotal);
+    // getParallelUniverse(1000, 0.5, semantic_focus);
+    // swapHelpers();
+
+    // int batch_size = 64;
+    // int negative_rate = 1;
+    // int negative_relation_rate = 0;
+    // int batch_seq_size = batch_size * (1 + negative_rate + negative_relation_rate);
+
+    // INT *batch_head = (INT*) calloc (batch_seq_size, sizeof(INT));
+    // INT *batch_rel = (INT*) calloc (batch_seq_size, sizeof(INT));
+    // INT *batch_tail = (INT*) calloc (batch_seq_size, sizeof(INT));
+    // REAL *batch_truth = (REAL*) calloc (batch_seq_size, sizeof(REAL));
+
+    // enableChecks();
+    // sampling(
+    //     batch_head,
+    //     batch_tail,
+    //     batch_rel,
+    //     batch_truth,
+    //     batch_size,
+    //     negative_rate,
+    //     negative_relation_rate,
+    //     0,
+    //     true,
+    //     false,
+    //     false);
+    
     return 0;
 }

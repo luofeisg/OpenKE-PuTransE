@@ -26,6 +26,42 @@ Triple *trainRel2;
 INT *testLef, *testRig;
 INT *validLef, *validRig;
 
+void callocIntArray(INT* &arr, INT length) {
+    if(arr == NULL){
+        arr = (INT *) calloc(length, sizeof(INT));
+        // printf("INT array allocated.\n");
+    }
+    
+    if (!arr) {
+        printf("out of mem\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void callocTripleArray(Triple* &arr, INT length) {
+    if(arr == NULL){
+        arr = (Triple *) calloc(length, sizeof(Triple));
+        // printf("Triple array allocated.\n");
+    }
+    
+    if (!arr) {
+        printf("out of mem\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
+void callocRealArray(REAL* &arr, INT length) {
+    if(arr == NULL){
+        arr = (REAL *) calloc(length, sizeof(REAL));
+        // printf("REAL array allocated.\n");
+    }
+    
+    if (!arr) {
+        printf("out of mem\n");
+        exit(EXIT_FAILURE);
+    }
+}
+
 extern "C"
 void importProb(REAL temp) {
     if (prob != NULL)
@@ -53,29 +89,7 @@ void importProb(REAL temp) {
     fclose(fin);
 }
 
-void checkAllocationTripleArray(Triple *&ptr, INT len) {
-    if (ptr == NULL) {
-        std::cout << "ptr was not allocated" << std::endl;
-        std::cout << "length is: " << len << std::endl;
-    }
-}
-
-void checkAllocationINTarray(INT *&ptr, INT len) {
-    if (ptr == NULL) {
-        std::cout << "ptr was not allocated" << std::endl;
-        std::cout << "length is: " << len << std::endl;
-    }
-}
-extern "C"
-void printTrainHead() {
-    for (int n = 0; n < trainTotal; n++) {
-        std::cout << "trainHead" << trainHead[n].h << "," << trainHead[n].r << ", "
-                  << trainHead[n].t << ". " << std::endl;
-
-    }
-}
-
-void initializeHelpers(
+void loadHelpers(
         Triple *&trainingList,
         Triple *&trainingListHead,
         Triple *&trainingListTail,
@@ -84,6 +98,8 @@ void initializeHelpers(
         INT *&frequencyRelation,
         INT *&frequencyEntity,
         INT trainingTotal,
+        INT entTotal,
+        INT relTotal,
         INT *&leftIndexHead,
         INT *&rightIndexHead,
         INT *&leftIndexTail,
@@ -96,38 +112,14 @@ void initializeHelpers(
         REAL *&rightIndex_mean
 ) {
     std::sort(trainingList, trainingList + trainingTotal, Triple::cmp_head);
-    std::set<INT> entity_set;
-    std::set<INT> relation_set;
 
-    for (INT i = 1; i < trainingTotal; i++) {
-        entity_set.insert(trainingList[i].h);
-        entity_set.insert(trainingList[i].t);
-        relation_set.insert(trainingList[i].r);
-    }
-    INT entityTotal = entity_set.size();
-    INT relationTotal = relation_set.size();
+    callocTripleArray(trainingListHead, trainingTotal);
+    callocTripleArray(trainingListTail, trainingTotal);
+    callocTripleArray(trainingListRel, trainingTotal);
+    callocTripleArray(trainingListRel2, trainingTotal);
 
-    trainingListHead = (Triple *) calloc(trainingTotal, sizeof(Triple));
-    checkAllocationTripleArray(trainingListHead, trainingTotal);
-    trainingListTail = (Triple *) calloc(trainingTotal, sizeof(Triple));
-    checkAllocationTripleArray(trainingListTail, trainingTotal);
-    trainingListRel = (Triple *) calloc(trainingTotal, sizeof(Triple));
-    checkAllocationTripleArray(trainingListRel, trainingTotal);
-    trainingListRel2 = (Triple *) calloc(trainingTotal, sizeof(Triple));
-    checkAllocationTripleArray(trainingListRel2, trainingTotal);
-
-    frequencyRelation = (INT *) calloc(relationTotal, sizeof(INT));
-    frequencyEntity = (INT *) calloc(entityTotal, sizeof(INT));
-    leftIndexHead = (INT *) calloc(entityTotal, sizeof(INT));
-    rightIndexHead = (INT *) calloc(entityTotal, sizeof(INT));
-
-    leftIndexTail = (INT *) calloc(entityTotal, sizeof(INT));
-    rightIndexTail = (INT *) calloc(entityTotal, sizeof(INT));
-    leftIndexRelation = (INT *) calloc(entityTotal, sizeof(INT));
-    rightIndexRelation = (INT *) calloc(entityTotal, sizeof(INT));
-    leftIndexRelation2 = (INT *) calloc(entityTotal, sizeof(INT));
-    rightIndexRelation2 = (INT *) calloc(relationTotal, sizeof(INT));
-
+    callocIntArray(frequencyEntity, entityTotal);
+    callocIntArray(frequencyRelation, relationTotal);
 
     trainingListHead[0] = trainingListTail[0] = trainingListRel[0] = trainingListRel2[0] = trainingList[0];
     frequencyEntity[trainingList[0].t] += 1;
@@ -136,22 +128,29 @@ void initializeHelpers(
 
     for (INT i = 1; i < trainingTotal; i++) {
         trainingListHead[i] = trainingListTail[i] = trainingListRel[i] = trainingListRel2[i] = trainingList[i];
-        frequencyEntity[trainingList[i].t]++;
         frequencyEntity[trainingList[i].h]++;
+        frequencyEntity[trainingList[i].t]++;
         frequencyRelation[trainList[i].r]++;
     }
     std::sort(trainingListHead, trainingListHead + trainingTotal, Triple::cmp_head);
     std::sort(trainingListTail, trainingListTail + trainingTotal, Triple::cmp_tail);
     std::sort(trainingListRel, trainingListRel + trainingTotal, Triple::cmp_rel);
     std::sort(trainingListRel2, trainingListRel2 + trainingTotal, Triple::cmp_rel2);
-    std::cout << "Init2" << std::endl;
 
+    callocIntArray(leftIndexHead, entityTotal);
+    callocIntArray(rightIndexHead, entityTotal);
+    callocIntArray(leftIndexTail, entityTotal);
+    callocIntArray(rightIndexTail, entityTotal);
+    callocIntArray(leftIndexRelation, entityTotal);
+    callocIntArray(rightIndexRelation, entityTotal);
+    callocIntArray(leftIndexRelation2, relationTotal);
+    callocIntArray(rightIndexRelation2, relationTotal);
 
     memset(rightIndexHead, -1, sizeof(INT) * entityTotal);
     memset(rightIndexTail, -1, sizeof(INT) * entityTotal);
     memset(rightIndexRelation, -1, sizeof(INT) * entityTotal);
     memset(rightIndexRelation2, -1, sizeof(INT) * relationTotal);
-    std::cout << "Init3" << std::endl;
+    
     for (INT i = 1; i < trainingTotal; i++) {
         if (trainingListTail[i].t != trainingListTail[i - 1].t) {
             rightIndexTail[trainingListTail[i - 1].t] = i - 1;
@@ -170,7 +169,7 @@ void initializeHelpers(
             leftIndexRelation2[trainingListRel2[i].r] = i;
         }
     }
-    std::cout << "Init4" << std::endl;
+    
     leftIndexHead[trainingListHead[0].h] = 0;
     rightIndexHead[trainingListHead[trainingTotal - 1].h] = trainingTotal - 1;
     leftIndexTail[trainingListTail[0].t] = 0;
@@ -179,10 +178,11 @@ void initializeHelpers(
     rightIndexRelation[trainingListRel[trainingTotal - 1].h] = trainingTotal - 1;
     leftIndexRelation2[trainingListRel2[0].r] = 0;
     rightIndexRelation2[trainingListRel2[trainingTotal - 1].r] = trainingTotal - 1;
-    std::cout << "Init5" << std::endl;
-    leftIndex_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
-    rightIndex_mean = (REAL *) calloc(relationTotal, sizeof(REAL));
-    for (INT i = 0; i < entityTotal; i++) {
+    
+    callocRealArray(leftIndex_mean, relationTotal);
+    callocRealArray(rightIndex_mean, relationTotal);
+
+    for (INT i = 0; i < entTotal; i++) {
         for (INT j = leftIndexHead[i] + 1; j <= rightIndexHead[i]; j++)
             if (trainingListHead[j].r != trainingListHead[j - 1].r)
                 leftIndex_mean[trainingListHead[j].r] += 1.0;
@@ -194,11 +194,10 @@ void initializeHelpers(
         if (leftIndexTail[i] <= rightIndexTail[i])
             rightIndex_mean[trainingListTail[leftIndexTail[i]].r] += 1.0;
     }
-    for (INT i = 0; i < relationTotal; i++) {
+    for (INT i = 0; i < relTotal; i++) {
         leftIndex_mean[i] = frequencyRelation[i] / leftIndex_mean[i];
         rightIndex_mean[i] = frequencyRelation[i] / rightIndex_mean[i];
     }
-    std::cout << "Init6" << std::endl;
 }
 
 extern "C"
@@ -207,7 +206,7 @@ void importTrainFiles() {
     printf("The toolkit is importing datasets.\n");
     FILE *fin;
     int tmp;
-
+    
     fin = fopen((inPath + "relation2id.txt").c_str(), "r");
     tmp = fscanf(fin, "%ld", &relationTotal);
     printf("The total of relations is %ld.\n", relationTotal);
@@ -239,7 +238,7 @@ void importTrainFiles() {
         }
     printf("The total of train triples is %ld.\n", trainTotal);
 
-    initializeHelpers(
+    loadHelpers(
             trainList,
             trainHead,
             trainTail,
@@ -248,6 +247,8 @@ void importTrainFiles() {
             freqRel,
             freqEnt,
             trainTotal,
+            entityTotal,
+            relationTotal,
             lefHead,
             rigHead,
             lefTail,
