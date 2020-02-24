@@ -43,20 +43,9 @@ class TrainDataLoader(object):
 		]
 
 		self.lib.getParallelUniverse.argtypes = [
-			ctypes.c_void_p,
-			ctypes.c_void_p,
-			ctypes.c_void_p,
-			ctypes.c_void_p,
-			ctypes.c_void_p,
 			ctypes.c_int64,
 			ctypes.c_float,
 			ctypes.c_int64
-		]
-
-		self.lib.getTrainUniverse.argtypes = [
-			ctypes.c_void_p,
-			ctypes.c_void_p,
-			ctypes.c_void_p
 		]
 
 		"""set essential parameters"""
