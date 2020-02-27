@@ -7,11 +7,12 @@ from ...data import TrainDataLoader, TestDataLoader
 from ...config import Trainer, Tester
 from ..strategy import NegativeSampling
 from ..loss import MarginLoss
+from typing import DefaultDict
 
 
 class ParallelUniverse(Model):
 
-    def __init__(self, use_gpu=false, in_path, initial_num_universes=5000, min_margin=1, max_margin=4,
+    def __init__(self, use_gpu=False, in_path="./", initial_num_universes=5000, min_margin=1, max_margin=4,
                  min_lr=0.01, max_lr=0.1, min_num_epochs=50, max_num_epochs=200, min_triple_constraint=500,
                  max_triple_constraint=2000, balance=0.5, num_dim=50, norm=None, model_name="TransE"):
         self.use_gpu = use_gpu

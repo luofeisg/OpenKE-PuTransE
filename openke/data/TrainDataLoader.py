@@ -3,209 +3,234 @@ import os
 import ctypes
 import numpy as np
 
+
 class TrainDataSampler(object):
 
-	def __init__(self, nbatches, datasampler):
-		self.nbatches = nbatches
-		self.datasampler = datasampler
-		self.batch = 0
+    def __init__(self, nbatches, datasampler):
+        self.nbatches = nbatches
+        self.datasampler = datasampler
+        self.batch = 0
 
-	def __iter__(self):
-		return self
+    def __iter__(self):
+        return self
 
-	def __next__(self):
-		self.batch += 1 
-		if self.batch > self.nbatches:
-			raise StopIteration()
-		return self.datasampler()
+    def __next__(self):
+        self.batch += 1
+        if self.batch > self.nbatches:
+            raise StopIteration()
+        return self.datasampler()
 
-	def __len__(self):
-		return self.nbatches
+    def __len__(self):
+        return self.nbatches
+
 
 class TrainDataLoader(object):
 
-	def __init__(self, in_path = "./", batch_size = None, nbatches = None, threads = 8, sampling_mode = "normal", bern_flag = 0, filter_flag = 1, neg_ent = 1, neg_rel = 0):
-		base_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../release/Base.so"))
-		self.lib = ctypes.cdll.LoadLibrary(base_file)
-		"""argtypes"""
-		self.lib.sampling.argtypes = [
-			ctypes.c_void_p,
-			ctypes.c_void_p,
-			ctypes.c_void_p,
-			ctypes.c_void_p,
-			ctypes.c_int64,
-			ctypes.c_int64,
-			ctypes.c_int64,
-			ctypes.c_int64,
-			ctypes.c_int64,
-			ctypes.c_int64,
-			ctypes.c_int64
-		]
+    def __init__(self, in_path="./", batch_size=None, nbatches=None, threads=8, sampling_mode="normal", bern_flag=0,
+                 filter_flag=1, neg_ent=1, neg_rel=0):
+        base_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../release/Base.so"))
+        self.lib = ctypes.cdll.LoadLibrary(base_file)
+        """argtypes"""
+        self.lib.sampling.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_int64,
+            ctypes.c_int64,
+            ctypes.c_int64,
+            ctypes.c_int64,
+            ctypes.c_int64,
+            ctypes.c_int64,
+            ctypes.c_int64
+        ]
 
-		self.lib.getParallelUniverse.argtypes = [
-			ctypes.c_int64,
-			ctypes.c_float,
-			ctypes.c_int64
-		]
+        self.lib.getParallelUniverse.argtypes = [
+            ctypes.c_int64,
+            ctypes.c_float,
+            ctypes.c_int64
+        ]
 
-		"""set essential parameters"""
-		self.in_path = in_path
-		self.work_threads = threads
-		self.nbatches = nbatches
-		self.batch_size = batch_size
-		self.bern = bern_flag
-		self.filter = filter_flag
-		self.negative_ent = neg_ent
-		self.negative_rel = neg_rel
-		self.sampling_mode = sampling_mode
-		self.cross_sampling_flag = 0
-		self.read()
+        self.lib.getEntityRemapping.argtypes = [
+            ctypes.c_void_p
+        ]
 
-	def read(self):
-		self.lib.setInPath(ctypes.create_string_buffer(self.in_path.encode(), len(self.in_path) * 2))
-		self.lib.setBern(self.bern)
-		self.lib.setWorkThreads(self.work_threads)
-		self.lib.randReset()
-		self.lib.importTrainFiles()
-		self.relTotal = self.lib.getRelationTotal()
-		self.entTotal = self.lib.getEntityTotal()
-		self.tripleTotal = self.lib.getTrainTotal()
+        self.lib.getRelationRemapping.argtypes = [
+            ctypes.c_void_p
+        ]
 
-		if self.batch_size == None:
-			self.batch_size = self.tripleTotal // self.nbatches
-		if self.nbatches == None:
-			self.nbatches = self.tripleTotal // self.batch_size
-		self.batch_seq_size = self.batch_size * (1 + self.negative_ent + self.negative_rel)
+        """set essential parameters"""
+        self.in_path = in_path
+        self.work_threads = threads
+        self.nbatches = nbatches
+        self.batch_size = batch_size
+        self.bern = bern_flag
+        self.filter = filter_flag
+        self.negative_ent = neg_ent
+        self.negative_rel = neg_rel
+        self.sampling_mode = sampling_mode
+        self.cross_sampling_flag = 0
+        self.read()
 
-		self.batch_h = np.zeros(self.batch_seq_size, dtype=np.int64)
-		self.batch_t = np.zeros(self.batch_seq_size, dtype=np.int64)
-		self.batch_r = np.zeros(self.batch_seq_size, dtype=np.int64)
-		self.batch_y = np.zeros(self.batch_seq_size, dtype=np.float32)
-		self.batch_h_addr = self.batch_h.__array_interface__["data"][0]
-		self.batch_t_addr = self.batch_t.__array_interface__["data"][0]
-		self.batch_r_addr = self.batch_r.__array_interface__["data"][0]
-		self.batch_y_addr = self.batch_y.__array_interface__["data"][0]
+    def read(self):
+        self.lib.setInPath(ctypes.create_string_buffer(self.in_path.encode(), len(self.in_path) * 2))
+        self.lib.setBern(self.bern)
+        self.lib.setWorkThreads(self.work_threads)
+        self.lib.randReset()
+        self.lib.importTrainFiles()
+        self.relTotal = self.lib.getRelationTotal()
+        self.entTotal = self.lib.getEntityTotal()
+        self.tripleTotal = self.lib.getTrainTotal()
 
-	def sampling(self):
-		self.lib.sampling(
-			self.batch_h_addr,
-			self.batch_t_addr,
-			self.batch_r_addr,
-			self.batch_y_addr,
-			self.batch_size,
-			self.negative_ent,
-			self.negative_rel,
-			0,
-			self.filter,
-			0,
-			0
-		)
-		return {
-			"batch_h": self.batch_h, 
-			"batch_t": self.batch_t, 
-			"batch_r": self.batch_r, 
-			"batch_y": self.batch_y,
-			"mode": "normal"
-		}
+        if self.batch_size == None:
+            self.batch_size = self.tripleTotal // self.nbatches
+        if self.nbatches == None:
+            self.nbatches = self.tripleTotal // self.batch_size
+        self.batch_seq_size = self.batch_size * (1 + self.negative_ent + self.negative_rel)
 
-	def sampling_head(self):
-		self.lib.sampling(
-			self.batch_h_addr,
-			self.batch_t_addr,
-			self.batch_r_addr,
-			self.batch_y_addr,
-			self.batch_size,
-			self.negative_ent,
-			self.negative_rel,
-			-1,
-			self.filter,
-			0,
-			0
-		)
-		return {
-			"batch_h": self.batch_h,
-			"batch_t": self.batch_t[:self.batch_size],
-			"batch_r": self.batch_r[:self.batch_size],
-			"batch_y": self.batch_y,
-			"mode": "head_batch"
-		}
+        self.batch_h = np.zeros(self.batch_seq_size, dtype=np.int64)
+        self.batch_t = np.zeros(self.batch_seq_size, dtype=np.int64)
+        self.batch_r = np.zeros(self.batch_seq_size, dtype=np.int64)
+        self.batch_y = np.zeros(self.batch_seq_size, dtype=np.float32)
+        self.batch_h_addr = self.batch_h.__array_interface__["data"][0]
+        self.batch_t_addr = self.batch_t.__array_interface__["data"][0]
+        self.batch_r_addr = self.batch_r.__array_interface__["data"][0]
+        self.batch_y_addr = self.batch_y.__array_interface__["data"][0]
 
-	def sampling_tail(self):
-		self.lib.sampling(
-			self.batch_h_addr,
-			self.batch_t_addr,
-			self.batch_r_addr,
-			self.batch_y_addr,
-			self.batch_size,
-			self.negative_ent,
-			self.negative_rel,
-			1,
-			self.filter,
-			0,
-			0
-		)
-		return {
-			"batch_h": self.batch_h[:self.batch_size],
-			"batch_t": self.batch_t,
-			"batch_r": self.batch_r[:self.batch_size],
-			"batch_y": self.batch_y,
-			"mode": "tail_batch"
-		}
+    def get_universe_mappings(self):
+        entity_total_universe = self.lib.getEntityTotalUniverse()
+        relation_total_universe = self.lib.getRelationTotalUniverse()
 
-	def cross_sampling(self):
-		self.cross_sampling_flag = 1 - self.cross_sampling_flag 
-		# self.cross_sampling_flag = 0 #haha
-		if self.cross_sampling_flag == 0:
-			return self.sampling_head()
-		else:
-			return self.sampling_tail()
+        entity_remapping = np.zeros(entity_total_universe, dtype=np.int64)
+        relation_remapping = np.zeros(relation_total_universe, dtype=np.int64)
 
-	"""interfaces to set essential parameters"""
+        entity_remapping_addr = entity_remapping.__array_interface__["data"][0]
+        relation_remapping_addr = relation_remapping.__array_interface__["data"][0]
 
-	def set_work_threads(self, work_threads):
-		self.work_threads = work_threads
+        self.lib.getEntityRemapping(entity_remapping_addr)
+        self.lib.getRelationRemapping(relation_remapping_addr)
+        return entity_remapping, relation_remapping
 
-	def set_in_path(self, in_path):
-		self.in_path = in_path
+    def sampling(self):
+        self.lib.sampling(
+            self.batch_h_addr,
+            self.batch_t_addr,
+            self.batch_r_addr,
+            self.batch_y_addr,
+            self.batch_size,
+            self.negative_ent,
+            self.negative_rel,
+            0,
+            self.filter,
+            0,
+            0
+        )
+        return {
+            "batch_h": self.batch_h,
+            "batch_t": self.batch_t,
+            "batch_r": self.batch_r,
+            "batch_y": self.batch_y,
+            "mode": "normal"
+        }
 
-	def set_nbatches(self, nbatches):
-		self.nbatches = nbatches
+    def sampling_head(self):
+        self.lib.sampling(
+            self.batch_h_addr,
+            self.batch_t_addr,
+            self.batch_r_addr,
+            self.batch_y_addr,
+            self.batch_size,
+            self.negative_ent,
+            self.negative_rel,
+            -1,
+            self.filter,
+            0,
+            0
+        )
+        return {
+            "batch_h": self.batch_h,
+            "batch_t": self.batch_t[:self.batch_size],
+            "batch_r": self.batch_r[:self.batch_size],
+            "batch_y": self.batch_y,
+            "mode": "head_batch"
+        }
 
-	def set_batch_size(self, batch_size):
-		self.batch_size = batch_size
-		self.nbatches = self.tripleTotal // self.batch_size
+    def sampling_tail(self):
+        self.lib.sampling(
+            self.batch_h_addr,
+            self.batch_t_addr,
+            self.batch_r_addr,
+            self.batch_y_addr,
+            self.batch_size,
+            self.negative_ent,
+            self.negative_rel,
+            1,
+            self.filter,
+            0,
+            0
+        )
+        return {
+            "batch_h": self.batch_h[:self.batch_size],
+            "batch_t": self.batch_t,
+            "batch_r": self.batch_r[:self.batch_size],
+            "batch_y": self.batch_y,
+            "mode": "tail_batch"
+        }
 
-	def set_ent_neg_rate(self, rate):
-		self.negative_ent = rate
+    def cross_sampling(self):
+        self.cross_sampling_flag = 1 - self.cross_sampling_flag
+        # self.cross_sampling_flag = 0 #haha
+        if self.cross_sampling_flag == 0:
+            return self.sampling_head()
+        else:
+            return self.sampling_tail()
 
-	def set_rel_neg_rate(self, rate):
-		self.negative_rel = rate
+    """interfaces to set essential parameters"""
 
-	def set_bern_flag(self, bern):
-		self.bern = bern
+    def set_work_threads(self, work_threads):
+        self.work_threads = work_threads
 
-	def set_filter_flag(self, filter):
-		self.filter = filter
+    def set_in_path(self, in_path):
+        self.in_path = in_path
 
-	"""interfaces to get essential parameters"""
+    def set_nbatches(self, nbatches):
+        self.nbatches = nbatches
 
-	def get_batch_size(self):
-		return self.batch_size
+    def set_batch_size(self, batch_size):
+        self.batch_size = batch_size
+        self.nbatches = self.tripleTotal // self.batch_size
 
-	def get_ent_tot(self):
-		return self.entTotal
+    def set_ent_neg_rate(self, rate):
+        self.negative_ent = rate
 
-	def get_rel_tot(self):
-		return self.relTotal
+    def set_rel_neg_rate(self, rate):
+        self.negative_rel = rate
 
-	def get_triple_tot(self):
-		return self.tripleTotal
+    def set_bern_flag(self, bern):
+        self.bern = bern
 
-	def __iter__(self):
-		if self.sampling_mode == "normal":
-			return TrainDataSampler(self.nbatches, self.sampling)
-		else:
-			return TrainDataSampler(self.nbatches, self.cross_sampling)
+    def set_filter_flag(self, filter):
+        self.filter = filter
 
-	def __len__(self):
-		return self.nbatches
+    """interfaces to get essential parameters"""
+
+    def get_batch_size(self):
+        return self.batch_size
+
+    def get_ent_tot(self):
+        return self.entTotal
+
+    def get_rel_tot(self):
+        return self.relTotal
+
+    def get_triple_tot(self):
+        return self.tripleTotal
+
+    def __iter__(self):
+        if self.sampling_mode == "normal":
+            return TrainDataSampler(self.nbatches, self.sampling)
+        else:
+            return TrainDataSampler(self.nbatches, self.cross_sampling)
+
+    def __len__(self):
+        return self.nbatches

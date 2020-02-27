@@ -52,13 +52,17 @@ INT getTrainTotalUniverse() {
 }
 
 extern "C"
-void getEntityRemapping(INT *entity_remapping) {
-    
+void getEntityRemapping(INT *ent_remapping) {
+    for (INT i=0;i<entityTotalUniverse;i++){
+        ent_remapping[i] = entity_remapping[i];
+    }
 }
 
 extern "C"
-void getRelationRemapping(INT *entity_remapping) {
-    
+void getRelationRemapping(INT *rel_remapping) {
+    for (INT i=0;i<relationTotalUniverse;i++){
+        rel_remapping[i] = relation_remapping[i];
+    }
 }
 
 /*
