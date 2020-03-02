@@ -94,6 +94,12 @@ void getParallelUniverse(
         INT relation);
 
 extern "C"
+void getEntityRemapping(INT *ent_remapping);
+
+extern "C"
+void getRelationRemapping(INT *rel_remapping);
+
+extern "C"
 void swapHelpers();
 
 extern "C"
@@ -245,47 +251,47 @@ void sampling(
 
 int main() {
     /* Python Input */
-    inPath = "../../benchmarks/FB15K237/";
-    setBern(1);
-    setWorkThreads(8);
-    randReset();
-    initializeSingleRandomSeed();
+    // inPath = "../../benchmarks/FB15K237/";
+    // setBern(1);
+    // setWorkThreads(8);
+    // randReset();
+    // initializeSingleRandomSeed();
     importTrainFiles();
 
-    for(INT i = 0;i<6;i++){    
-        for(INT i = 0;i<relationTotal;i++){
-            INT triple_constraint = rand(500, 1000);
+    // for(INT i = 0;i<6;i++){    
+    //     for(INT i = 0;i<relationTotal;i++){
+    //         INT triple_constraint = rand(500, 1000);
             
-            getParallelUniverse(triple_constraint, 0.5, i);
-            swapHelpers();
+    //         getParallelUniverse(triple_constraint, 0.5, i);
+    //         swapHelpers();
 
-            int batch_size = 64;
-            int negative_rate = 1;
-            int negative_relation_rate = 0;
-            int batch_seq_size = batch_size * (1 + negative_rate + negative_relation_rate);
+    //         int batch_size = 64;
+    //         int negative_rate = 1;
+    //         int negative_relation_rate = 0;
+    //         int batch_seq_size = batch_size * (1 + negative_rate + negative_relation_rate);
 
-            INT *batch_head = (INT*) calloc (batch_seq_size, sizeof(INT));
-            INT *batch_rel = (INT*) calloc (batch_seq_size, sizeof(INT));
-            INT *batch_tail = (INT*) calloc (batch_seq_size, sizeof(INT));
-            REAL *batch_truth = (REAL*) calloc (batch_seq_size, sizeof(REAL));
+    //         INT *batch_head = (INT*) calloc (batch_seq_size, sizeof(INT));
+    //         INT *batch_rel = (INT*) calloc (batch_seq_size, sizeof(INT));
+    //         INT *batch_tail = (INT*) calloc (batch_seq_size, sizeof(INT));
+    //         REAL *batch_truth = (REAL*) calloc (batch_seq_size, sizeof(REAL));
 
-            enableChecks();
-            sampling(
-                batch_head,
-                batch_tail,
-                batch_rel,
-                batch_truth,
-                batch_size,
-                negative_rate,
-                negative_relation_rate,
-                0,
-                true,
-                false,
-                false);
+    //         enableChecks();
+    //         sampling(
+    //             batch_head,
+    //             batch_tail,
+    //             batch_rel,
+    //             batch_truth,
+    //             batch_size,
+    //             negative_rate,
+    //             negative_relation_rate,
+    //             0,
+    //             true,
+    //             false,
+    //             false);
             
-            resetUniverse();
-        }
-    }
+    //         resetUniverse();
+    //     }
+    // }
     // INT semantic_focus = rand(0,relationTotal);
     // getParallelUniverse(1000, 0.5, semantic_focus);
     // swapHelpers();

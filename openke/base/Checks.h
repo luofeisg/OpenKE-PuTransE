@@ -3,7 +3,7 @@
 
 #include "Triple.h"
 #include "Reader.h"
-#include "ParallelUniverse.h"
+#include "UniverseSetting.h"
 #include <cstdlib>
 #include <set>
 #include <algorithm>

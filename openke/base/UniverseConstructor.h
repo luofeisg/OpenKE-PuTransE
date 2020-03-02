@@ -219,10 +219,10 @@ void loadUniverseHelpers() {
     callocIntArray(lefRel2Universe, relationTotal);
     callocIntArray(rigRel2Universe, relationTotal);
 
-    memset(rigHeadUniverse, -1, sizeof(INT) * entityTotal);
-    memset(rigTailUniverse, -1, sizeof(INT) * entityTotal);
-    memset(rigRelUniverse, -1, sizeof(INT) * entityTotal);
-    memset(rigRel2Universe, -1, sizeof(INT) * relationTotal);
+    memset(rigHeadUniverse, -1, sizeof(INT) * entityTotalUniverse);
+    memset(rigTailUniverse, -1, sizeof(INT) * entityTotalUniverse);
+    memset(rigRelUniverse, -1, sizeof(INT) * entityTotalUniverse);
+    memset(rigRel2Universe, -1, sizeof(INT) * relationTotalUniverse);
 
     for (INT i = 1; i < trainTotalUniverse; i++) {
         if (trainTailUniverse[i].t != trainTailUniverse[i - 1].t) {
@@ -304,11 +304,14 @@ void getParallelUniverse(
     printf("Gather training dataset for Universe...\n");
     BidirectionalRandomWalk(entity_set);
     entity_set.clear();
-    checkUniverseTrainingTriples();
+    if(checkOn)
+        checkUniverseTrainingTriples();
 
     printf("Enumerate entities and relations in triples. \n");
     enumerateTrainUniverseTriples();
-    checkEnumeration();
+    
+    if(checkOn)
+        checkEnumeration();
 
     printf("Initialize helper arrays. \n");
     loadUniverseHelpers();
@@ -334,7 +337,9 @@ void getParallelUniverse(
     //         left_meanUniverse,
     //         right_meanUniverse
     // );
-    checkUniverseHelpers();
+    if(checkOn)
+        checkUniverseHelpers();
+    
     printf("Universe configured. \n");
 }
 
