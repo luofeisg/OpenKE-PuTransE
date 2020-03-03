@@ -16,7 +16,7 @@ class ParallelUniverse(Model):
     def __init__(self, ent_tot, rel_tot, use_gpu=False, train_dataloader=None, initial_num_universes=5000, min_margin=1,
                  max_margin=4,
                  min_lr=0.01, max_lr=0.1, min_num_epochs=50, max_num_epochs=200, min_triple_constraint=500,
-                 max_triple_constraint=2000, balance=0.5, num_dim=50, norm=None, embedding_meth="TransE"):
+                 max_triple_constraint=2000, balance=0.5, num_dim=50, norm=None, embedding_method="TransE"):
         super(ParallelUniverse, self).__init__(ent_tot, rel_tot)
         self.use_gpu = use_gpu
 
@@ -44,14 +44,14 @@ class ParallelUniverse(Model):
 
         self.num_dim = num_dim
         self.norm = norm
-        self.embedding_meth = embedding_meth
+        self.embedding_method = embedding_method
         self.train_dataloader = train_dataloader
 
-    def model_factory(self, embedding_meth, ent_tot, rel_tot, dim, p_norm=1, norm_flag=True, margin=None, epsilon=None):
-        if embedding_meth == "TransE":
+    def model_factory(self, embedding_method, ent_tot, rel_tot, dim, p_norm=1, norm_flag=True, margin=None, epsilon=None):
+        if embedding_method == "TransE":
             embedding_method = TransE(ent_tot, rel_tot, dim, p_norm, norm_flag, margin, epsilon)
 
-        if embedding_meth == "":
+        if embedding_method == "":
             return
 
         return NegativeSampling(
@@ -73,23 +73,32 @@ class ParallelUniverse(Model):
             self.relation_universes[relation_remapping[relation]].add(self.next_universe_id)
             self.relation_id_mappings[self.next_universe_id][relation_remapping[relation]] = relation
 
-            # self.next_universe_id += 1
-            # self.next_universe_id += 1
-
-    def train_embedding_space(self):
+    def compile_train_datset(self):
         triple_constraint = randrange(self.min_triple_constraint, self.max_triple_constraint)
         balance_param = self.balance
         relation_in_focus = randrange(0, self.train_dataloader.relTotal - 1)
 
-        # Create train dataset for universe and process mapping of contained global entities and relations
+        print("universe information-------------------")
+        print("--- num of training triples: %d" % triple_constraint)
+        print("--- num of universe entities: %d" % self.train_dataloader.lib.getEntityTotalUniverse())
+        print("--- num of universe relations: %d" % self.train_dataloader.lib.getRelationTotalUniverse())
+        print("--- semantic focus is relation: %d" % relation_in_focus)
+        print("---------------------------------------")
+
         self.train_dataloader.lib.getParallelUniverse(triple_constraint, balance_param, relation_in_focus)
         self.process_universe_mappings()
+
+        print("Train dataset for embedding space compiled.")
+
+    def train_embedding_space(self):
+        # Create train dataset for universe and process mapping of contained global entities and relations
+        self.compile_train_datset()
 
         # Create Model with factory
         entity_total_universe = self.train_dataloader.lib.getEntityTotalUniverse()
         relation_total_universe = self.train_dataloader.lib.getRelationTotalUniverse()
         margin = randrange(self.min_margin, self.max_margin)
-        model = self.model_factory(self.embedding_meth, entity_total_universe, relation_total_universe,
+        model = self.model_factory(self.embedding_method, entity_total_universe, relation_total_universe,
                                    self.num_dim, self.norm, margin)
         # Initialize Trainer
         train_times = randrange(self.min_num_epochs, self.max_num_epochs)
@@ -97,23 +106,39 @@ class ParallelUniverse(Model):
         trainer = Trainer(model=model, data_loader=self.train_dataloader, train_times=train_times, alpha=lr,
                           use_gpu=self.use_gpu, opt_method="Adagrad")
 
+        print("hyperparams for universe %d------------" % self.next_universe_id)
+        print("--- epochs: %d" % train_times)
+        print("--- learning rate:", lr)
+        print("--- margin: %d" % margin)
+        print("--- norm: %d" % self.norm)
+        print("--- dimensions: %d" % self.num_dim)
+        print("universe information-------------------")
+        print("--- num of training triples: %d" % triple_constraint)
+        print("--- num of universe entities: %d" % entity_total_universe)
+        print("--- num of universe relations: %d" % relation_total_universe)
+        print("--- semantic focus is relation: %d" % relation_in_focus)
+        print("---------------------------------------")
+
         # Train embedding space
         self.train_dataloader.lib.swapHelpers()
         trainer.run()
         self.train_dataloader.lib.resetUniverse()
 
-        # Add trained embeddings space to set of other embedding spaces
-        self.trained_embedding_spaces[self.next_universe_id] = model.model
+        return model.model
+
+    def add_embedding_space(self, embedding_space):
+        self.trained_embedding_spaces[self.next_universe_id] = embedding_space
         self.next_universe_id += 1
 
-
-    def trainParallelUniverses(self):
-        for universe in self.initial_num_universes:
-            self.createUniverse()
+    def train_parallel_universes(self):
+        for universe_id in range(self.initial_num_universes):
+            embedding_space = self.train_embedding_space()
+            self.add_embedding_space(embedding_space)
 
     def forward(self):
         return 0
 
-    def predict(self, data):
+    def predict(self):
         return 0
+
 
