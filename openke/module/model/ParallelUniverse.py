@@ -1,15 +1,13 @@
 import torch
 import os
-from random import randrange, uniform
+from random import randrange, uniform, seed
 from .Model import Model
 from .TransE import TransE
-from ...data import TrainDataLoader, TestDataLoader
 from ...config import Trainer, Tester
 from ..strategy import NegativeSampling
 from ..loss import MarginLoss
 from collections import defaultdict
 from typing import Dict
-import numpy as np
 
 
 def defaultdict_int():
@@ -55,6 +53,13 @@ class ParallelUniverse(Model):
         self.entity_universes = defaultdict(set)  # entity_id -> universe_id
         self.relation_universes = defaultdict(set)  # relation_id -> universe_id
 
+        self.initial_random_seed = self.train_dataloader.lib.getRandomSeed()
+
+    def set_random_seed(self, rand_seed):
+        self.train_dataloader.lib.setRandomSeed(rand_seed)
+        self.train_dataloader.lib.randReset()
+        seed(rand_seed)
+
     def model_factory(self, embedding_method, ent_tot, rel_tot, dim, p_norm=1, norm_flag=True, margin=None,
                       epsilon=None):
         if embedding_method == "TransE":
@@ -84,6 +89,7 @@ class ParallelUniverse(Model):
             self.relation_id_mappings[self.next_universe_id][relation_remapping[relation].item()] = relation
 
     def compile_train_datset(self):
+        # Create train dataset for universe and process mapping of contained global entities and relations
         triple_constraint = randrange(self.min_triple_constraint, self.max_triple_constraint)
         balance_param = self.balance
         relation_in_focus = randrange(0, self.train_dataloader.relTotal - 1)
@@ -100,9 +106,6 @@ class ParallelUniverse(Model):
         print("Train dataset for embedding space compiled.")
 
     def train_embedding_space(self):
-        # Create train dataset for universe and process mapping of contained global entities and relations
-        self.compile_train_datset()
-
         # Create Model with factory
         entity_total_universe = self.train_dataloader.lib.getEntityTotalUniverse()
         relation_total_universe = self.train_dataloader.lib.getRelationTotalUniverse()
@@ -135,12 +138,14 @@ class ParallelUniverse(Model):
             param.requires_grad = False
 
         self.trained_embedding_spaces[self.next_universe_id] = embedding_space
-        self.next_universe_id += 1
 
     def train_parallel_universes(self, num_of_embedding_spaces):
         for universe_id in range(num_of_embedding_spaces):
+            self.set_random_seed(self.initial_random_seed + self.next_universe_id)
+            self.compile_train_datset()
             embedding_space = self.train_embedding_space()
             self.add_embedding_space(embedding_space)
+            self.next_universe_id += 1
 
             if self.save_steps and self.checkpoint_dir and (universe_id + 1) % self.save_steps == 0:
                 print("Learned %d universes." % self.next_universe_id)
@@ -274,8 +279,6 @@ class ParallelUniverse(Model):
                 self.relation_id_mappings[self.next_universe_id + instance_next_universe_id][relation_key] = \
                     ParallelUniverse_inst.relation_id_mappings[instance_next_universe_id][relation_key]
                 # universe_id -> global entity_id -> universe entity_id
-
-
 
         self.next_universe_id += ParallelUniverse_inst.next_universe_id
 

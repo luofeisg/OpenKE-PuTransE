@@ -55,7 +55,10 @@ extern "C"
 void randReset();
 
 extern "C"
-void initializeSingleRandomSeed();
+void setRandomSeed(INT seed);
+
+extern "C"
+INT getRandomSeed();
 
 /*
 ===============Reader.h===============
@@ -255,7 +258,7 @@ int main() {
     // setBern(1);
     // setWorkThreads(8);
     // randReset();
-    // initializeSingleRandomSeed();
+    // setRandomSeed();
     importTrainFiles();
 
     // for(INT i = 0;i<6;i++){    

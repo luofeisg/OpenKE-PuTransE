@@ -27,7 +27,7 @@ class TrainDataSampler(object):
 class TrainDataLoader(object):
 
     def __init__(self, in_path="./", batch_size=None, nbatches=None, threads=8, sampling_mode="normal", bern_flag=0,
-                 filter_flag=1, neg_ent=1, neg_rel=0):
+                 filter_flag=1, neg_ent=1, neg_rel=0, initial_random_seed=2):
         base_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../release/Base.so"))
         self.lib = ctypes.cdll.LoadLibrary(base_file)
         """argtypes"""
@@ -70,12 +70,14 @@ class TrainDataLoader(object):
         self.negative_rel = neg_rel
         self.sampling_mode = sampling_mode
         self.cross_sampling_flag = 0
+        self.initial_random_seed = initial_random_seed
         self.read()
 
     def read(self):
         self.lib.setInPath(ctypes.create_string_buffer(self.in_path.encode(), len(self.in_path) * 2))
         self.lib.setBern(self.bern)
         self.lib.setWorkThreads(self.work_threads)
+        self.lib.setRandomSeed(self.initial_random_seed)
         self.lib.randReset()
         self.lib.importTrainFiles()
         self.relTotal = self.lib.getRelationTotal()

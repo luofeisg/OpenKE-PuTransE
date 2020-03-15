@@ -33,8 +33,19 @@ INT rand(INT a, INT b){
 	return (rand() % (b-a))+ a;
 }
 
+INT random_seed;
 extern "C"
-void initializeSingleRandomSeed(){
-    srand(time(0));
+void setRandomSeed(INT seed = -1){
+    if(seed == -1)
+		random_seed = time(0);
+	else
+		random_seed = seed;
+	
+	srand(random_seed);
+}
+
+extern "C"
+INT getRandomSeed(){
+    return random_seed;
 }
 #endif
