@@ -62,6 +62,12 @@ void getRelBatch(INT *ph, INT *pt, INT *pr) {
 }
 
 extern "C"
+void print_con(REAL *con){
+    for (INT j = 0; j < entityTotal; j++) 
+        printf("score %ld = %f.\n", j, con[j]);
+}
+
+extern "C"
 void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
     INT h = testList[lastHead].h;
     INT t = testList[lastHead].t;
@@ -77,28 +83,39 @@ void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
     INT l_s_constrain = 0;
     INT l_filter_s_constrain = 0;
 
-    for (INT j = 0; j < entityTotal; j++) {
-        if (j != h) {
-            REAL value = con[j];
-            if (value < minimal) {
-                l_s += 1;
-                if (not _find(j, t, r))
-                    l_filter_s += 1;
-            }
-            if (type_constrain) {
-                while (lef < rig && head_type[lef] < j) lef ++;
-                if (lef < rig && j == head_type[lef]) {
-                    if (value < minimal) {
-                        l_s_constrain += 1;
-                        if (not _find(j, t, r)) {
-                            l_filter_s_constrain += 1;
-                        }
-                    }  
+    if (minimal != -1.0){
+        for (INT j = 0; j < entityTotal; j++) {
+            if (j != h) {
+                REAL value = con[j];
+                if (value < minimal && value != -1) {
+                    l_s += 1;
+                    if (not _find(j, t, r))
+                        l_filter_s += 1;
+                }
+                if (type_constrain) {
+                    while (lef < rig && head_type[lef] < j) lef ++;
+                    if (lef < rig && j == head_type[lef]) {
+                        if (value < minimal) {
+                            l_s_constrain += 1;
+                            if (not _find(j, t, r)) {
+                                l_filter_s_constrain += 1;
+                            }
+                        }  
+                    }
                 }
             }
         }
+    } else {
+        l_s = entityTotal;
+        l_filter_s = entityTotal;
+        for (INT j = 0; j < entityTotal; j++) 
+            if (_find(j, t, r))
+                l_filter_s -= 1;
     }
-
+    printf("Triple (%ld, %ld, %ld).\n", h, t, r);
+    printf("raw Rank: %ld.\n", l_s);
+    printf("filter Rank: %ld.\n", l_filter_s);
+    printf("-------\n");
     if (l_filter_s < 10) l_filter_tot += 1;
     if (l_s < 10) l_tot += 1;
     if (l_filter_s < 3) l3_filter_tot += 1;
@@ -141,29 +158,41 @@ void testTail(REAL *con, INT lastTail, bool type_constrain = false) {
     INT r_filter_s = 0;
     INT r_s_constrain = 0;
     INT r_filter_s_constrain = 0;
-    for (INT j = 0; j < entityTotal; j++) {
-        if (j != t) {
-            REAL value = con[j];
-            if (value < minimal) {
-                r_s += 1;
-                if (not _find(h, j, r))
-                    r_filter_s += 1;
-            }
-            if (type_constrain) {
-                while (lef < rig && tail_type[lef] < j) lef ++;
-                if (lef < rig && j == tail_type[lef]) {
-                        if (value < minimal) {
-                            r_s_constrain += 1;
-                            if (not _find(h, j ,r)) {
-                                r_filter_s_constrain += 1;
+    
+    if (minimal != -1.0){
+        for (INT j = 0; j < entityTotal; j++) {
+            if (j != t) {
+                REAL value = con[j];
+                if (value < minimal && value != -1) {
+                    r_s += 1;
+                    if (not _find(h, j, r))
+                        r_filter_s += 1;
+                }
+                if (type_constrain) {
+                    while (lef < rig && tail_type[lef] < j) lef ++;
+                    if (lef < rig && j == tail_type[lef]) {
+                            if (value < minimal) {
+                                r_s_constrain += 1;
+                                if (not _find(h, j ,r)) {
+                                    r_filter_s_constrain += 1;
+                                }
                             }
-                        }
+                    }
                 }
             }
+            
         }
-        
+    } else {
+        r_s = entityTotal;
+        r_filter_s = entityTotal;
+        for (INT j = 0; j < entityTotal; j++) 
+            if (_find(h, j, r))
+                r_filter_s -= 1;
     }
-
+    printf("Triple (%ld, %ld, %ld).\n", h, t, r);
+    printf("raw Rank: %ld.\n", r_s);
+    printf("filter Rank: %ld.\n", r_filter_s);
+    printf("-------\n");
     if (r_filter_s < 10) r_filter_tot += 1;
     if (r_s < 10) r_tot += 1;
     if (r_filter_s < 3) r3_filter_tot += 1;
