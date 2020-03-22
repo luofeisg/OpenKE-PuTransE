@@ -25,7 +25,6 @@ class TrainDataSampler(object):
 
 
 class TrainDataLoader(object):
-
     def __init__(self, in_path="./", batch_size=None, nbatches=None, threads=8, sampling_mode="normal", bern_flag=0,
                  filter_flag=1, neg_ent=1, neg_rel=0, initial_random_seed=2):
         base_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../release/Base.so"))
@@ -88,6 +87,9 @@ class TrainDataLoader(object):
             self.batch_size = self.tripleTotal // self.nbatches
         if self.nbatches == None:
             self.nbatches = self.tripleTotal // self.batch_size
+        self.update_batch_arrays()
+
+    def update_batch_arrays(self):
         self.batch_seq_size = self.batch_size * (1 + self.negative_ent + self.negative_rel)
 
         self.batch_h = np.zeros(self.batch_seq_size, dtype=np.int64)
@@ -98,6 +100,13 @@ class TrainDataLoader(object):
         self.batch_t_addr = self.batch_t.__array_interface__["data"][0]
         self.batch_r_addr = self.batch_r.__array_interface__["data"][0]
         self.batch_y_addr = self.batch_y.__array_interface__["data"][0]
+
+    def swap_helpers(self):
+        self.lib.swapHelpers()
+
+    def reset_universe(self):
+        self.lib.resetUniverse()
+        self.set_nbatches(self.lib.getTrainTotal(), self.nbatches)
 
     def get_universe_mappings(self):
         entity_total_universe = self.lib.getEntityTotalUniverse()
@@ -112,6 +121,10 @@ class TrainDataLoader(object):
         self.lib.getEntityRemapping(entity_remapping_addr)
         self.lib.getRelationRemapping(relation_remapping_addr)
         return entity_remapping, relation_remapping
+
+    def compile_universe_dataset(self, triple_constraint, balance_param, relation_in_focus):
+        self.lib.getParallelUniverse(triple_constraint, balance_param, relation_in_focus)
+        self.set_nbatches(self.lib.getTrainTotalUniverse(), self.nbatches)
 
     def sampling(self):
         self.lib.sampling(
@@ -195,12 +208,15 @@ class TrainDataLoader(object):
     def set_in_path(self, in_path):
         self.in_path = in_path
 
-    def set_nbatches(self, nbatches):
+    def set_nbatches(self, triple_total, nbatches):
         self.nbatches = nbatches
+        self.batch_size = triple_total // nbatches
+        self.update_batch_arrays()
 
-    def set_batch_size(self, batch_size):
+    def set_batch_size(self, triple_total, batch_size):
+        self.nbatches = triple_total // batch_size
         self.batch_size = batch_size
-        self.nbatches = self.tripleTotal // self.batch_size
+        self.update_batch_arrays()
 
     def set_ent_neg_rate(self, rate):
         self.negative_ent = rate
