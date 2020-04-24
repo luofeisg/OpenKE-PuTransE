@@ -4,8 +4,10 @@ from __future__ import print_function
 
 from .Trainer import Trainer
 from .Tester import Tester
+from .Parallel_Universe_Config import Parallel_Universe_Config
 
 __all__ = [
 	'Trainer',
-	'Tester'
+	'Tester',
+	'Parallel_Universe_Config'
 ]
