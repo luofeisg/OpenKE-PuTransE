@@ -16,6 +16,12 @@
 */
 
 extern "C"
+void print_con(REAL *con);
+
+extern "C"
+void test_balance_param(REAL balance, INT triple_constr);
+
+extern "C"
 void setInPath(char *path);
 
 extern "C"
@@ -122,6 +128,7 @@ struct Parameter {
     INT *batch_t;
     INT *batch_r;
     REAL *batch_y;
+    INT *batch_head_corr;
     INT batchSize;
     INT negRate;
     INT negRelRate;
@@ -138,6 +145,7 @@ void *getBatch(void *con) {
     INT *batch_t = para->batch_t;
     INT *batch_r = para->batch_r;
     REAL *batch_y = para->batch_y;
+    INT *batch_head_corr = para->batch_head_corr;
     INT batchSize = para->batchSize;
     INT negRate = para->negRate;
     INT negRelRate = para->negRelRate;
@@ -162,6 +170,7 @@ void *getBatch(void *con) {
             batch_t[batch] = trainList[i].t;
             batch_r[batch] = trainList[i].r;
             batch_y[batch] = 1;
+            batch_head_corr[batch] = -1;
             INT last = batchSize;
             for (INT times = 0; times < negRate; times++) {
                 if (mode == 0) {
@@ -172,10 +181,12 @@ void *getBatch(void *con) {
                         batch_h[batch + last] = trainList[i].h;
                         batch_t[batch + last] = corrupt_head(id, trainList[i].h, trainList[i].r);
                         batch_r[batch + last] = trainList[i].r;
+                        batch_head_corr[batch + last] = 0;
                     } else {
                         batch_h[batch + last] = corrupt_tail(id, trainList[i].t, trainList[i].r);
                         batch_t[batch + last] = trainList[i].t;
                         batch_r[batch + last] = trainList[i].r;
+                        batch_head_corr[batch + last] = 1;
                     }
                     batch_y[batch + last] = -1;
                     last += batchSize;
@@ -184,10 +195,12 @@ void *getBatch(void *con) {
                         batch_h[batch + last] = corrupt_tail(id, trainList[i].t, trainList[i].r);
                         batch_t[batch + last] = trainList[i].t;
                         batch_r[batch + last] = trainList[i].r;
+                        batch_head_corr[batch + last] = 1;
                     } else {
                         batch_h[batch + last] = trainList[i].h;
                         batch_t[batch + last] = corrupt_head(id, trainList[i].h, trainList[i].r);
                         batch_r[batch + last] = trainList[i].r;
+                        batch_head_corr[batch + last] = 0;
                     }
                     batch_y[batch + last] = -1;
                     last += batchSize;
@@ -218,6 +231,7 @@ void sampling(
         INT *batch_t,
         INT *batch_r,
         REAL *batch_y,
+        INT *batch_head_corr,
         INT batchSize,
         INT negRate = 1,
         INT negRelRate = 0,
@@ -234,6 +248,7 @@ void sampling(
         para[threads].batch_t = batch_t;
         para[threads].batch_r = batch_r;
         para[threads].batch_y = batch_y;
+        para[threads].batch_head_corr = batch_head_corr;
         para[threads].batchSize = batchSize;
         para[threads].negRate = negRate;
         para[threads].negRelRate = negRelRate;
@@ -251,6 +266,164 @@ void sampling(
     
     if (checkOn)
         checkSampling(batch_h, batch_t, batch_r, batch_y, trainListUniverse, trainTotal, batchSize);
+}
+
+extern "C"
+INT getNumOfNegatives(INT entity, INT relation, bool entity_is_tail) {
+    
+    INT num_of_negative_entities = 0;
+    if(entity_is_tail==1){
+        
+        INT lefIndexTail = lefTail[entity];
+        INT rigIndexTail = rigTail[entity];
+        
+        for(int i=lefIndexTail; i <= rigIndexTail; i++){
+            if(trainTail[i].r != relation)
+                num_of_negative_entities += 1;
+        }
+    }else{
+        INT lefIndexHead = lefHead[entity];
+        INT rigIndexHead = rigHead[entity];
+        
+        for(int i=lefIndexHead; i <= rigIndexHead; i++){
+            if(trainHead[i].r != relation)
+                num_of_negative_entities += 1;
+        }
+    }
+    return num_of_negative_entities;
+}
+
+extern "C"
+INT getNumOfPositives(INT entity, INT relation, bool entity_is_tail) {
+    INT num_of_positive_entities = 0;
+    if(entity_is_tail){
+        
+        INT lefIndexTail = lefTail[entity];
+        INT rigIndexTail = rigTail[entity];
+        
+        for(int i=lefIndexTail; i <= rigIndexTail; i++){
+            if(trainTail[i].r == relation)
+                num_of_positive_entities += 1;
+        }
+    }else{
+        INT lefIndexHead = lefHead[entity];
+        INT rigIndexHead = rigHead[entity];
+        
+        for(int i=lefIndexHead; i <= rigIndexHead; i++){
+            if(trainHead[i].r == relation)
+                num_of_positive_entities += 1;
+        }
+    }
+    return num_of_positive_entities;
+}
+
+extern "C"
+void getNegativeEntities(INT* batch_neg_entities, INT entity, INT relation, bool entity_is_tail) {
+    INT batch_neg_entities_idx = 0;
+    if(entity_is_tail){
+        INT lefIndexTail = lefTail[entity];
+        INT rigIndexTail = rigTail[entity];
+        
+        for(int i=lefIndexTail; i <= rigIndexTail; i++){
+            if(trainTail[i].r != relation){
+                batch_neg_entities[batch_neg_entities_idx] = trainTail[i].h; 
+                batch_neg_entities_idx += 1;
+            }    
+        }
+    }else{
+        INT lefIndexHead = lefHead[entity];
+        INT rigIndexHead = rigHead[entity];
+        
+        for(int i=lefIndexHead; i <= rigIndexHead; i++){
+            if(trainHead[i].r != relation){
+                batch_neg_entities[batch_neg_entities_idx] = trainHead[i].t; 
+                batch_neg_entities_idx += 1;
+            }
+        }
+    }
+}
+
+extern "C"
+void getPositiveEntities(INT* batch_pos_ent, INT entity, INT relation, bool entity_is_tail) {
+    INT batch_neg_entities_idx = 0;
+    if(entity_is_tail){
+        INT lefIndexTail = lefTail[entity];
+        INT rigIndexTail = rigTail[entity];
+        
+        for(int i=lefIndexTail; i <= rigIndexTail; i++){
+            if(trainTail[i].r == relation){
+                batch_pos_ent[batch_neg_entities_idx] = trainTail[i].h; 
+                batch_neg_entities_idx += 1;
+            }    
+        }
+    }else{
+        INT lefIndexHead = lefHead[entity];
+        INT rigIndexHead = rigHead[entity];
+        
+        for(int i=lefIndexHead; i <= rigIndexHead; i++){
+            if(trainHead[i].r == relation){
+                batch_pos_ent[batch_neg_entities_idx] = trainHead[i].t; 
+                batch_neg_entities_idx += 1;
+            }
+        }
+    }
+}
+
+extern "C"
+INT getNumOfEntityRelations(INT entity, bool entity_is_tail) {
+    INT num_of_relations = 0;
+    INT current_rel = -1;
+
+    if(entity_is_tail==1){
+        INT lefIndexTail = lefTail[entity];
+        INT rigIndexTail = rigTail[entity];
+        
+        for(int i=lefIndexTail; i <= rigIndexTail; i++){
+            if(trainTail[i].r != current_rel){
+                current_rel = trainTail[i].r;
+                num_of_relations += 1;
+            }
+        }
+    }else{
+        INT lefIndexHead = lefHead[entity];
+        INT rigIndexHead = rigHead[entity];
+        
+        for(int i=lefIndexHead; i <= rigIndexHead; i++){
+            if(trainHead[i].r != current_rel){
+                current_rel = trainHead[i].r;
+                num_of_relations += 1;
+            }
+        }
+    }
+    return num_of_relations;
+}
+
+extern "C"
+void getEntityRelations(INT* entity_rels, INT entity, bool entity_is_tail) {
+    INT entity_rels_idx = 0;
+    INT current_rel = -1;
+
+    if(entity_is_tail==1){
+        INT lefIndexTail = lefTail[entity];
+        INT rigIndexTail = rigTail[entity];
+        
+        for(int i=lefIndexTail; i <= rigIndexTail; i++){
+            if(trainTail[i].r != current_rel){
+                current_rel = trainTail[i].r;
+                entity_rels[entity_rels_idx] = trainTail[i].r;
+            }
+        }
+    }else{
+        INT lefIndexHead = lefHead[entity];
+        INT rigIndexHead = rigHead[entity];
+        
+        for(int i=lefIndexHead; i <= rigIndexHead; i++){
+            if(trainHead[i].r != current_rel){
+                current_rel = trainHead[i].r;
+                entity_rels[entity_rels_idx] = trainHead[i].r;
+            }
+        }
+    }
 }
 
 int main() {

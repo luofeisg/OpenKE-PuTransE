@@ -35,6 +35,7 @@ class TrainDataLoader(object):
             ctypes.c_void_p,
             ctypes.c_void_p,
             ctypes.c_void_p,
+            ctypes.c_void_p,
             ctypes.c_int64,
             ctypes.c_int64,
             ctypes.c_int64,
@@ -56,6 +57,49 @@ class TrainDataLoader(object):
 
         self.lib.getRelationRemapping.argtypes = [
             ctypes.c_void_p
+        ]
+
+        self.lib.getNumOfNegatives.argtypes = [
+            ctypes.c_int64,
+            ctypes.c_int64,
+            ctypes.c_int64
+        ]
+
+        self.lib.getNumOfNegatives.restype = ctypes.c_int64
+
+        self.lib.getNegativeEntities.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int64,
+            ctypes.c_int64,
+            ctypes.c_int64
+        ]
+
+        self.lib.getNumOfPositives.argtypes = [
+            ctypes.c_int64,
+            ctypes.c_int64,
+            ctypes.c_int64
+        ]
+
+        self.lib.getNumOfPositives.restype = ctypes.c_int64
+
+        self.lib.getPositiveEntities.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int64,
+            ctypes.c_int64,
+            ctypes.c_int64
+        ]
+
+        self.lib.getNumOfEntityRelations.argtypes = [
+            ctypes.c_int64,
+            ctypes.c_int64
+        ]
+
+        self.lib.getNumOfEntityRelations.restype = ctypes.c_int64
+
+        self.lib.getEntityRelations.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_int64,
+            ctypes.c_int64
         ]
 
         """set essential parameters"""
@@ -96,10 +140,12 @@ class TrainDataLoader(object):
         self.batch_t = np.zeros(self.batch_seq_size, dtype=np.int64)
         self.batch_r = np.zeros(self.batch_seq_size, dtype=np.int64)
         self.batch_y = np.zeros(self.batch_seq_size, dtype=np.float32)
+        self.batch_head_corr = np.zeros(self.batch_seq_size, dtype=np.int64)
         self.batch_h_addr = self.batch_h.__array_interface__["data"][0]
         self.batch_t_addr = self.batch_t.__array_interface__["data"][0]
         self.batch_r_addr = self.batch_r.__array_interface__["data"][0]
         self.batch_y_addr = self.batch_y.__array_interface__["data"][0]
+        self.batch_head_corr_addr = self.batch_head_corr.__array_interface__["data"][0]
 
     def swap_helpers(self):
         self.lib.swapHelpers()
@@ -132,6 +178,7 @@ class TrainDataLoader(object):
             self.batch_t_addr,
             self.batch_r_addr,
             self.batch_y_addr,
+            self.batch_head_corr_addr,
             self.batch_size,
             self.negative_ent,
             self.negative_rel,
@@ -145,6 +192,7 @@ class TrainDataLoader(object):
             "batch_t": self.batch_t,
             "batch_r": self.batch_r,
             "batch_y": self.batch_y,
+            "batch_head_corr": self.batch_head_corr,
             "mode": "normal"
         }
 
@@ -154,6 +202,7 @@ class TrainDataLoader(object):
             self.batch_t_addr,
             self.batch_r_addr,
             self.batch_y_addr,
+            self.batch_head_corr_addr,
             self.batch_size,
             self.negative_ent,
             self.negative_rel,
@@ -167,6 +216,7 @@ class TrainDataLoader(object):
             "batch_t": self.batch_t[:self.batch_size],
             "batch_r": self.batch_r[:self.batch_size],
             "batch_y": self.batch_y,
+            "batch_head_corr": self.batch_head_corr,
             "mode": "head_batch"
         }
 
@@ -176,6 +226,7 @@ class TrainDataLoader(object):
             self.batch_t_addr,
             self.batch_r_addr,
             self.batch_y_addr,
+            self.batch_head_corr_addr,
             self.batch_size,
             self.negative_ent,
             self.negative_rel,
@@ -189,6 +240,7 @@ class TrainDataLoader(object):
             "batch_t": self.batch_t,
             "batch_r": self.batch_r[:self.batch_size],
             "batch_y": self.batch_y,
+            "batch_head_corr": self.batch_head_corr,
             "mode": "tail_batch"
         }
 
@@ -199,6 +251,33 @@ class TrainDataLoader(object):
             return self.sampling_head()
         else:
             return self.sampling_tail()
+
+    def get_positive_entities(self, entity, relation, entity_is_head):
+        num_of_pos = self.lib.getNumOfPositives(entity, relation, entity_is_head)
+        batch_pos_entities = np.zeros(num_of_pos, dtype=np.int64)
+        batch_pos_entities_addr = batch_pos_entities.__array_interface__["data"][0]
+        self.lib.getPositiveEntities(batch_pos_entities_addr, entity, relation, entity_is_head)
+
+        return batch_pos_entities
+
+    def get_negative_entities(self, entity, relation, entity_is_head):
+        num_of_neg = self.lib.getNumOfNegatives(entity, relation, entity_is_head)
+        batch_neg_entities = np.zeros(num_of_neg, dtype=np.int64)
+
+        if num_of_neg != 0:
+            batch_neg_entities_addr = batch_neg_entities.__array_interface__["data"][0]
+            self.lib.getNegativeEntities(batch_neg_entities_addr, entity, relation, entity_is_head)
+
+        return batch_neg_entities
+
+    def get_entity_relations(self, entity, entity_is_tail):
+        num_of_rel = self.lib.getNumOfEntityRelations(entity, entity_is_tail)
+        batch_entity_relations = np.zeros(num_of_rel, dtype=np.int64)
+
+        batch_entity_relations_addr = batch_entity_relations.__array_interface__["data"][0]
+        self.lib.getEntityRelations(batch_entity_relations_addr, entity, entity_is_tail)
+
+        return batch_entity_relations
 
     """interfaces to set essential parameters"""
 

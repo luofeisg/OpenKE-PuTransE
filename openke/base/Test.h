@@ -69,6 +69,7 @@ void print_con(REAL *con){
 
 extern "C"
 void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
+    printf("lastHead: %ld.\n", lastHead);
     INT h = testList[lastHead].h;
     INT t = testList[lastHead].t;
     INT r = testList[lastHead].r;
@@ -78,16 +79,17 @@ void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
         rig = head_rig[r];
     }
     REAL minimal = con[h];
+    printf("lastHead score: %f.\n", con[h]);
     INT l_s = 0;
     INT l_filter_s = 0;
     INT l_s_constrain = 0;
     INT l_filter_s_constrain = 0;
 
-    if (minimal != -1.0){
+    if (minimal != INFINITY){
         for (INT j = 0; j < entityTotal; j++) {
             if (j != h) {
                 REAL value = con[j];
-                if (value < minimal && value != -1) {
+                if (value < minimal) {
                     l_s += 1;
                     if (not _find(j, t, r))
                         l_filter_s += 1;
@@ -159,11 +161,11 @@ void testTail(REAL *con, INT lastTail, bool type_constrain = false) {
     INT r_s_constrain = 0;
     INT r_filter_s_constrain = 0;
     
-    if (minimal != -1.0){
+    if (minimal != INFINITY){
         for (INT j = 0; j < entityTotal; j++) {
             if (j != t) {
                 REAL value = con[j];
-                if (value < minimal && value != -1) {
+                if (value < minimal) {
                     r_s += 1;
                     if (not _find(h, j, r))
                         r_filter_s += 1;
