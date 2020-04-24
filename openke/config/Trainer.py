@@ -89,10 +89,13 @@ class Trainer(object):
 		training_range = tqdm(range(self.train_times))
 		for epoch in training_range:
 			res = 0.0
-			for data in self.data_loader:
+			for index, data in enumerate(self.data_loader):
+				print("--------- Batch {} -----------\n".format(index))
+				print(list(zip(data['batch_h'], data['batch_t'], data['batch_r'], data['batch_y'])))
+				print("--------------------\n")
 				loss = self.train_one_step(data)
 				res += loss
-			training_range.set_description("Epoch %d | loss: %f" % (epoch, res/self.data_loader.nbatches))
+			training_range.set_description("Epoch %d | loss: %f" % (epoch, loss/self.data_loader.nbatches))
 			
 			if self.save_steps and self.checkpoint_dir and (epoch + 1) % self.save_steps == 0:
 				print("Epoch %d has finished, saving..." % (epoch))

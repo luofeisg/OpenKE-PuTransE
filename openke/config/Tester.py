@@ -41,7 +41,7 @@ class Tester(object):
         self.data_loader = data_loader
         self.use_gpu = use_gpu
 
-        if self.use_gpu:
+        if self.use_gpu and self.model != None:
             self.model.cuda()
 
     def set_model(self, model):
