@@ -35,8 +35,6 @@ class Tester(object):
         self.lib.getTestLinkHit3.restype = ctypes.c_float
         self.lib.getTestLinkHit1.restype = ctypes.c_float
 
-        self.lib.print_con.argtypes = [ctypes.c_void_p]
-
         self.model = model
         self.data_loader = data_loader
         self.use_gpu = use_gpu

@@ -12,6 +12,7 @@ from ..module.strategy import NegativeSampling
 from ..module.loss import MarginLoss
 from collections import defaultdict
 from tqdm import tqdm
+from copy import deepcopy
 import sys
 
 
@@ -63,12 +64,11 @@ def to_tensor(x, use_gpu):
 
 
 class Parallel_Universe_Config(Tester):
-    def __init__(self, train_dataloader=None, training_identifier='', test_dataloader=None, initial_num_universes=5000,
-                 min_margin=1,
-                 max_margin=4, min_lr=0.01, max_lr=0.1, min_num_epochs=50, max_num_epochs=200, const_num_epochs=None,
-                 min_triple_constraint=500,
-                 max_triple_constraint=2000, min_balance=0.25, max_balance=0.5, num_dim=50, norm=None,
-                 embedding_method='TransE', embedding_model=None,
+    def __init__(self,
+                 train_dataloader=None, training_identifier='', test_dataloader=None, initial_num_universes=5000,
+                 min_margin=1, max_margin=4, min_lr=0.01, max_lr=0.1, min_num_epochs=50, max_num_epochs=200,
+                 const_num_epochs=None, min_triple_constraint=500, max_triple_constraint=2000, min_balance=0.25, max_balance=0.5,
+                 embedding_method='TransE', embedding_model=None, embedding_model_param=None,
                  missing_embedding_handling='last_rank',
                  save_steps=5, checkpoint_dir='./checkpoint/', valid_steps=5):
         super(Parallel_Universe_Config, self).__init__(data_loader=test_dataloader, use_gpu=torch.cuda.is_available())
@@ -80,10 +80,8 @@ class Parallel_Universe_Config(Tester):
         self.training_identifier = training_identifier
 
         """ "-constant traininghyper parameters" """
-        self.num_dim = num_dim
-        self.norm = norm
         self.embedding_model = embedding_model
-        self.embedding_method = embedding_method
+        self.embedding_model_param = embedding_model_param
 
         """ Parallel Universe data structures """
         self.initial_num_universes = initial_num_universes
@@ -134,8 +132,8 @@ class Parallel_Universe_Config(Tester):
         """Global Energy Estimation data structures"""
         self.current_tested_universes = 0
         self.current_validated_universes = 0
-        self.evaluation_head2tail_triple_score_dict = {} # dict(return_default_value_scores(self.ent_tot))
-        self.evaluation_tail2head_triple_score_dict = {} # defaultdict(return_default_value_scores(self.ent_tot))
+        self.evaluation_head2tail_triple_score_dict = {}  # dict(return_default_value_scores(self.ent_tot))
+        self.evaluation_tail2head_triple_score_dict = {}  # defaultdict(return_default_value_scores(self.ent_tot))
         self.evaluation_head2rel_tuple_score_dict = {}
         self.evaluation_tail2rel_tuple_score_dict = {}
         self.default_scores = [float("inf") for i in range(self.ent_tot)]
@@ -155,27 +153,12 @@ class Parallel_Universe_Config(Tester):
     def set_test_dataloader(self, test_dataloader):
         self.data_loader = test_dataloader
 
-    def model_factory(self, embedding_method, ent_tot, rel_tot, dim, p_norm=1, norm_flag=True, margin=None,
-                      epsilon=None):
-        if embedding_method == 'TransE':
-            embedding_method = TransE(ent_tot, rel_tot, dim, p_norm, norm_flag, epsilon)
-
-        if embedding_method == '':  # Create another entry to add Model to the Config
-            return
+    def embedding_model_factory(self, ent_tot, rel_tot, margin):
+        embedding_method = self.embedding_model(ent_tot, rel_tot, **self.embedding_model_param)
 
         return NegativeSampling(
             model=embedding_method,
-            loss=MarginLoss(margin),
-            batch_size=self.train_dataloader.batch_size
-        )
-
-    def embedding_model_factory(self, embedding_method, ent_tot, rel_tot, dim, p_norm=1, norm_flag=True, margin=None,
-                                epsilon=None):
-        embedding_method = self.embedding_model(ent_tot, rel_tot, dim, p_norm, norm_flag, epsilon)
-
-        return NegativeSampling(
-            model=embedding_method,
-            loss=MarginLoss(margin),
+            loss=MarginLoss(margin = margin),
             batch_size=self.train_dataloader.batch_size
         )
 
@@ -183,9 +166,9 @@ class Parallel_Universe_Config(Tester):
         self.lib.validInit()
         validation_range = tqdm(self.valid_dataloader)
         for index, [valid_head_batch, valid_tail_batch] in enumerate(validation_range):
-            score = self.global_energy_estimation(valid_head_batch, eval_mode='valid')
+            score = self.global_energy_estimation(valid_head_batch)
             self.lib.validHead(score.__array_interface__["data"][0], index)
-            score = self.global_energy_estimation(valid_tail_batch, eval_mode='valid')
+            score = self.global_energy_estimation(valid_tail_batch)
             self.lib.validTail(score.__array_interface__["data"][0], index)
         return self.lib.getValidHit10()
 
@@ -225,9 +208,9 @@ class Parallel_Universe_Config(Tester):
         entity_total_universe = self.train_dataloader.lib.getEntityTotalUniverse()
         relation_total_universe = self.train_dataloader.lib.getRelationTotalUniverse()
         margin = randrange(self.min_margin, self.max_margin)
-        model = self.model_factory(embedding_method=self.embedding_method, ent_tot=entity_total_universe,
-                                   rel_tot=relation_total_universe,
-                                   dim=self.num_dim, p_norm=self.norm, margin=margin)
+        model = self.embedding_model_factory(ent_tot=entity_total_universe, rel_tot=relation_total_universe,
+                                             margin=margin)
+
         # Initialize Trainer
         train_times = self.const_num_epochs if self.const_num_epochs is not None \
             else randrange(self.min_num_epochs, self.max_num_epochs)
@@ -240,8 +223,8 @@ class Parallel_Universe_Config(Tester):
         print('--- epochs: %d' % train_times)
         print('--- learning rate:', lr)
         print('--- margin: %d' % margin)
-        print('--- norm: %d' % self.norm)
-        print('--- dimensions: %d' % self.num_dim)
+        print('--- norm: %d' % self.embedding_model_param['p_norm'])
+        print('--- dimensions: %d' % self.embedding_model_param['dim'])
 
         # Train embedding space
         self.train_dataloader.swap_helpers()
@@ -265,12 +248,12 @@ class Parallel_Universe_Config(Tester):
             self.next_universe_id += 1
 
             if (universe_id + 1) % self.valid_steps == 0:
-                print("Universe %d has finished, validating..." % self.next_universe_id)
+                print("Universe %d has finished, validating..." % (self.next_universe_id - 1))
                 self.eval_universes(eval_mode='valid')
                 hit10 = self.valid()
                 if hit10 > self.best_hit10:
-                    best_hit10 = hit10
-                    print("Best model | hit@10 of valid set is %f" % best_hit10)
+                    self.best_hit10 = hit10
+                    print("Best model | hit@10 of valid set is %f" % self.best_hit10)
                     self.bad_counts = 0
                 else:
                     print(
@@ -279,13 +262,13 @@ class Parallel_Universe_Config(Tester):
                     )
                     self.bad_counts += 1
                 if self.bad_counts == self.early_stopping_patience:
-                    print("Early stopping at universe %d" % self.next_universe_id)
+                    print("Early stopping at universe {}".format(self.next_universe_id - 1))
                     break
 
             if self.save_steps and self.checkpoint_dir and (universe_id + 1) % self.save_steps == 0:
                 print('Learned %d universes.' % self.next_universe_id)
                 self.save_parameters(
-                    os.path.join('{}Pu{}_learned_spaces-{}_{}.ckpt'.format(self.checkpoint_dir, self.embedding_method,
+                    os.path.join('{}Pu{}_learned_spaces-{}_{}.ckpt'.format(self.checkpoint_dir, self.embedding_model.__name__,
                                                                            self.next_universe_id,
                                                                            self.training_identifier)))
 
@@ -578,7 +561,12 @@ class Parallel_Universe_Config(Tester):
 
     def run_link_prediction(self, type_constrain=False):
         self.eval_universes(eval_mode='test')
-        super().run_link_prediction(type_constrain)
+        mrr, mr, hit10, hit3, hit1 = super().run_link_prediction(type_constrain)
+        print('Mean Reciprocal Rank: {}'.format(mrr))
+        print('Mean Rank: {}'.format(mr))
+        print('Hits@10: {}'.format(hit10))
+        print('Hits@3: {}'.format(hit3))
+        print('Hits@1: {}'.format(hit1))
 
     # def forward(self, data: dict):
     #     batch_h = data['batch_h']
@@ -614,7 +602,7 @@ class Parallel_Universe_Config(Tester):
 
         for relation in range(ParallelUniverse_inst.rel_tot):
             self.relation_universes[relation].update(
-                ParallelUniverse_inst.relation_universes[relation])  # entity_id -> universe_id
+                ParallelUniverse_inst.relation_universes[relation])  # relation_id -> universe_id
 
         for instance_next_universe_id in range(ParallelUniverse_inst.next_universe_id):
             for entity_key in list(ParallelUniverse_inst.entity_id_mappings[instance_next_universe_id].keys()):
@@ -648,9 +636,8 @@ class Parallel_Universe_Config(Tester):
                       'min_balance': self.min_balance,
                       'max_balance': self.max_balance,
 
-                      'num_dim': self.num_dim,
-                      'norm': self.norm,
-                      'embedding_method': self.embedding_method,
+                      'embedding_model': self.embedding_model,
+                      'embedding_model_param': self.embedding_model_param,
 
                       'best_hit10': self.best_hit10,
                       'bad_counts': self.bad_counts,
@@ -684,9 +671,14 @@ class Parallel_Universe_Config(Tester):
         if 'min_balance' in state_dict:
             self.min_balance = state_dict['min_balance']
             self.max_balance = state_dict['max_balance']
-        self.num_dim = state_dict['num_dim']
-        self.norm = state_dict['norm']
-        self.embedding_method = state_dict['embedding_method']
+        if 'num_dim' in state_dict:
+            self.num_dim = state_dict['num_dim']
+            self.norm = state_dict['p_norm']
+        if 'embedding_method' in state_dict:
+            self.embedding_method = state_dict['embedding_method']
+        elif 'embedding_model' in state_dict:
+            self.embedding_model = state_dict['embedding_model']
+            self.embedding_model_param = state_dict['embedding_model_param']
         if 'best_hit10' in state_dict:
             self.best_hit10 = state_dict['best_hit10']
             self.bad_counts = state_dict['bad_counts']
