@@ -124,7 +124,20 @@ def create_redirect_entry(filename, source_item_id, target_item_id):
     redirects_log_folder.mkdir(exist_ok=True)
 
     with bz2.open("redirects/{}_redirected_items.txt.bz2".format(filename), mode="at", encoding="UTF-8") as f:
-        f.write("{} {}\n".format(source_item_id, target_item_id))
+        f.write("{} {}\n".format(source_item_id[1:], target_item_id[1:]))
+
+
+def get_redirect_dict():
+    redirects_log_folder = Path.cwd() / 'redirects'
+    redir_dict = {}
+
+    for redirect_file_log in redirects_log_folder.iterdir():
+        with bz2.open(redirect_file_log, "rt", encoding="UTF-8") as f:
+            for line in f:
+                source_item_id, target_item_id = line.split()
+                redir_dict[source_item_id] = target_item_id
+
+    return redir_dict
 
 
 def process_redirect(filename, source_item_id, target_item_id):
@@ -140,11 +153,11 @@ def extract_triple_operations(new_claims_set, old_claims_set, rev_ts, operation_
     # Get insert operations (new_set - old_set)
     triple_operations = new_claims_set - old_claims_set if operation_type == "ins" else old_claims_set - new_claims_set
     for operation in triple_operations:
-        subject = operation[0]
-        object = operation[2]
+        subjct = operation[0]
+        objct = operation[2]
         predicate = operation[1]
-        operation_type = "+" if operation_type == "ins" else "-"
-        triple_operations_list.append([subject, object, predicate, operation_type, rev_ts])
+        op_type = "+" if operation_type == "ins" else "-"
+        triple_operations_list.append([subjct, objct, predicate, op_type, rev_ts])
 
     return triple_operations_list
 
@@ -179,7 +192,7 @@ def get_triple_operations_list(revision_file):
             # Process claims into set of tuples
             for claim in revision_claim_list:
                 # Verify that subject is item_id
-                if claim[0] == item_id:
+                if claim[0] == int(item_id[1:]):
                     new_claims_set.add(tuple(claim))
                 else:
                     print("Subject {} != item_id {} for triple in file {}: ".format(claim[0], item_id, revision_file))
@@ -323,14 +336,14 @@ def get_truthy_claims_list(item_dict):
                         mainsnak_type = mainsnak['datavalue']['type']
                         if mainsnak_type == 'wikibase-entityid':
 
-                            object_dict = mainsnak['datavalue']['value']
-                            object_type = object_dict['entity-type']
+                            objct_dict = mainsnak['datavalue']['value']
+                            objct_type = objct_dict['entity-type']
 
                             # check object_type is Item
                             # (Otherwise it is a Property)
-                            if object_type == "item":
+                            if objct_type == "item":
                                 # object_id = "Q{}".format(object_dict["numeric-id"])
-                                triple = (int(item_id[1:]), int(property[1:]), int(object_dict["numeric-id"]))
+                                triple = (int(item_id[1:]), int(property[1:]), int(objct_dict["numeric-id"]))
 
                                 if rank == "preferred":
                                     preferred_statements.append(triple)
@@ -338,10 +351,10 @@ def get_truthy_claims_list(item_dict):
                                     normal_statements.append(triple)
 
                                 # Check if numeric_id is always like id without the prefix "Q"
-                                if "id" in object_dict and str(object_dict["numeric-id"]) != object_dict["id"][1:]:
+                                if "id" in objct_dict and str(objct_dict["numeric-id"]) != objct_dict["id"][1:]:
                                     print("Different ids for numeric-id {} and id {}".format(
-                                        object_dict["numeric-id"],
-                                        object_dict["id"][1:]))
+                                        objct_dict["numeric-id"],
+                                        objct_dict["id"][1:]))
 
             statements.extend(preferred_statements) if len(preferred_statements) != 0 else statements.extend(
                 normal_statements)
@@ -480,14 +493,14 @@ def get_truthy_claims_list(item_dict):
     # }
 
 
-def process_xml_dump(filename):
+def process_xml_dump(file):
     # mode can either be "analysis" or "extraction".
     # mode = "analysis": Traverses XML dump and calculate statistics to enable the exploration of the underlying data
     # mode = "extraction":
     print(datetime.now().strftime("%H:%M:%S"))
 
-    with DecompressingTextIOWrapper(Path(filename), encoding="UTF-8", progress_bar=True) as xmlf:
-        # with bz2.open(filename, "rt", encoding="UTF-8") as xmlf:
+    with DecompressingTextIOWrapper(Path(file), encoding="UTF-8", progress_bar=True) as xmlf:
+        # with bz2.open(file, "rt", encoding="UTF-8") as xmlf:
         print(datetime.now().strftime("%H:%M:%S"))
 
         item_id = None
@@ -504,9 +517,10 @@ def process_xml_dump(filename):
                 item_id = line[len("    <title>"):-len("</title>\n")]
 
             if line.startswith("    <redirect title"):
-                redir_item_id = line[len("    <redirect title ="):-len("\" />\n")]
-                # create redirection entry
+                redir_target_item_id = line[len("    <redirect title ="):-len("\" />\n")]
+                # create redirect entry
                 item_is_redirected = True
+                create_redirect_entry(file.name, item_id, redir_target_item_id)
 
             elif line.startswith("      <id>"):
                 revision_id = line[len("      <id>"):-len("</id>\n")]
@@ -517,7 +531,10 @@ def process_xml_dump(filename):
             elif line.startswith("      <format>"):
                 format = line[len("      <format>"):-len("</format>\n")]
             elif line.startswith("      <text bytes"):
-                if format == 'application/json':
+                if format == 'application/json' \
+                        and item_id \
+                        and item_id.startswith("Q") \
+                        and not item_is_redirected:
                     # Parse Text
                     text = line[line.find('>') + 1: -len('</text>') - 1]
 
@@ -527,28 +544,26 @@ def process_xml_dump(filename):
                         item_dict = json.loads(text)
 
                         # Process and store information about revisions of an Wikidata item in JSON
+                        # check if item_dict contains "type" and "id" as keys
+                        # --> Otherwise keys of item_dict are either ("entity", "redirect") or ("flow-workflow")
+                        if 'type' in item_dict and 'id' in item_dict:
+                            claim_triple_list = get_truthy_claims_list(item_dict)
+                            revision_dict = create_revision_dict(item_id, revision_id, timestamp, claim_triple_list)
+                            save_revision_dict_to_json_file(item_id, revision_dict)
 
-                        if item_id and item_id.startswith("Q"):
-                            # check if item_dict contains "type" and "id" as keys
-                            # --> Otherwise keys of item_dict are either ("entity", "redirect") or ("flow-workflow")
-                            if 'type' in item_dict and 'id' in item_dict:
-                                claim_triple_list = get_truthy_claims_list(item_dict)
-                                revision_dict = create_revision_dict(item_id, revision_id, timestamp, claim_triple_list)
-                                save_revision_dict_to_json_file(item_id, revision_dict)
-
-                            elif 'entity' in item_dict and 'redirect' in item_dict and item_is_redirected:
-                                source_item_id = item_dict["entity"]
-                                target_item_id = item_dict["redirect"]
-
-                                if target_item_id == redir_item_id:
-                                    process_redirect(filename, source_item_id, target_item_id)
-                                else:
-                                    print("For source item {} target_item_id in markup \<redirect title\> is {}, but "
-                                          "target in item_dict[\"redirect\"] is {}.".format(source_item_id,
-                                                                                            redir_item_id,
-                                                                                            target_item_id))
-                                source_item_id = None
-                                target_item_id = None
+                        # elif 'entity' in item_dict and 'redirect' in item_dict and item_is_redirected:
+                        # source_item_id = item_dict["entity"]
+                        # target_item_id = item_dict["redirect"]
+                        #
+                        # if target_item_id == redir_item_id:
+                        #     process_redirect(file, source_item_id, target_item_id)
+                        # else:
+                        #     print("For source item {} target_item_id in markup \<redirect title\> is {}, but "
+                        #           "target in item_dict[\"redirect\"] is {}.".format(source_item_id,
+                        #                                                             redir_item_id,
+                        #                                                             target_item_id))
+                        # source_item_id = None
+                        # target_item_id = None
 
 
 
@@ -577,35 +592,47 @@ def process_xml_dump(filename):
         print(datetime.now().strftime("%H:%M:%S"))
 
 
-def main():
-    print("Download history xml dumps from URL https://dumps.wikimedia.org/wikidatawiki/.")
-    download_wikidata_history_dumps(wikidata_dump_date=20200501)
+def compile_triple_operations():
+    # If not exists: Create output directory
+    output_path = Path.cwd() / "compiled_triple_operations"
+    output_path.mkdir(exist_ok=True)
 
-    print("Save paths of downloaded files into list.")
-    xml_dump_file_list = [xml_dump_file for xml_dump_file in Path.cwd().glob('*pages-meta-history*')]
-    xml_dump_file_list = xml_dump_file_list[:8]
+    # Path where triple ops are stored for each item
+    triple_ops_path = Path.cwd() / 'triple_operations'
 
-    print("Extract triples from xml dumps.")
-    with ProcessPoolExecutor() as executor:
-        for filename, _ in zip(xml_dump_file_list, executor.map(process_xml_dump, xml_dump_file_list)):
-            print('File {} has been processed succesfully: {}'.format(filename, datetime.now()))
+    # Load dict which maps source and target items in a redirect. We use it to replace redirected entities
+    # with their target items
+    redir_dict = get_redirect_dict()
 
-    print("Save paths of extracted json.bz2 revision files into list")
-    json_revision_files = [rev_file for rev_file in Path.cwd().glob('revision_files/*json.bz2*')]
+    with bz2.open(output_path / "compiled_triple_operations_raw.txt.bz2", "wt") as output:
+        # out.write('{}\n'.format(timestamp))
+        for triple_operations_log in triple_ops_path.iterdir():
+            with bz2.open(triple_operations_log, mode="rt", encoding="UTF-8") as input:
+                for line in input:
+                    # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
+                    subj, objc, pred, op_type, ts = line.split()
 
-    print("Extract triple operations from json revision files.")
-    with ProcessPoolExecutor() as executor:
-        for file, _ in zip(json_revision_files, executor.map(save_triple_operations, json_revision_files)):
-            print('Revision file {} processed succesfully at {}'.format(file.name, datetime.now()))
+                    # Resolve redirects in obj
+                    new_objc = redir_dict.get(objc, objc)
+                    if new_objc != objc:
+                        print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
 
-    print("Process redirected entities")
-    # TODO
-
-    print("Load lists of filtered entities and relations from LaCroix et al. (2020).")
-    filtered_entitites = read_filter_file(Path.cwd() / "filters" / "entities_filtered_by_LaCroix_et_al_2020")
-    filtered_relations = read_filter_file(Path.cwd() / "filters" / "predicates_filtered_by_LaCroix_et_al_2020")
+                    output_line = "{} {} {} {} {}".format(subj, new_objc, pred, op_type, ts)
+                    output.write(output_line + "\n")
 
 
+def filter_compiled_triple_operations(items_filter_list, predicates_filter_list):
+    compiled_triples_path = Path.cwd() / "compiled_triple_operations"
+    raw_triples_file = "compiled_triple_operations_raw.txt.bz2"
+
+    with bz2.open(compiled_triples_path / "compiled_triple_operations_filtered.txt.bz2", "wt") as output:
+        with bz2.open(raw_triples_file, mode="rt", encoding="UTF-8") as input:
+            for line in input:
+                subj, objc, pred, op_type, ts = line.split()
+                if int(subj) in items_filter_list and int(objc) in items_filter_list and int(
+                        pred) in predicates_filter_list:
+                    output_line = "{} {} {} {} {}".format(subj, objc, pred, op_type, ts)
+                    output.write(output_line + "\n")
 
 
 def read_filter_file(file):
@@ -613,27 +640,75 @@ def read_filter_file(file):
     with open(file) as f:
         for line in f:
             id, wikidata_id, name = line.split("\t")
-            filter_list.append("{}".format(wikidata_id))
+            filter_list.append(int(wikidata_id))
 
     return filter_list
 
 
+def main():
+    wikidata_path = Path.cwd()
+    print("Current Path is {}".format(wikidata_path))
+
+    ### Download XML dumps
+    print("Download history xml dumps from URL https://dumps.wikimedia.org/wikidatawiki/.")
+    download_wikidata_history_dumps(wikidata_dump_date=20200501)
+
+    print("Save paths of downloaded files into list.")
+    xml_dump_file_list = [xml_dump_file for xml_dump_file in wikidata_path.glob('*pages-meta-history*')]
+    xml_dump_file_list = xml_dump_file_list[:3]
+
+    ### Extract revisions
+    print("Extract revision information from xml dumps.")
+    with ProcessPoolExecutor() as executor:
+        for file, _ in zip(xml_dump_file_list, executor.map(process_xml_dump, xml_dump_file_list)):
+            print('File {} has been processed succesfully: {}'.format(file, datetime.now()))
+
+    ### Extract triple operations
+    print("Save paths of extracted json.bz2 revision files into list")
+    revision_files_path = wikidata_path / "revision_files"
+    json_revision_files = [rev_file for rev_file in revision_files_path.glob('*json.bz2*')]
+
+    print("Extract triple operations from json revision files.")
+    with ProcessPoolExecutor() as executor:
+        for file, _ in zip(json_revision_files, executor.map(save_triple_operations, json_revision_files)):
+            print('Revision file {} processed succesfully at {}'.format(file.name, datetime.now()))
+
+    ## Compile dataset with triple operations and replace redirected items
+    print("Compile triple operations to single file and resolve redirected object items")
+    compile_triple_operations()
+
+    # Filter triple operations with entity and relation list from LaCroix et al. (2020)
+    print("Load lists of filtered entities and relations from LaCroix et al. (2020).")
+    filtered_entitites = read_filter_file(Path.cwd() / "filters" / "entities_filtered_by_LaCroix_et_al_2020")
+    filtered_relations = read_filter_file(Path.cwd() / "filters" / "predicates_filtered_by_LaCroix_et_al_2020")
+    filter_compiled_triple_operations(filtered_entitites, filtered_relations)
+
+
 if __name__ == '__main__':
-    # main()
+    main()
 
-    filename = 'wikidatawiki-20200501-pages-meta-history20.xml-p19981616p20061203.bz2'
-    # filename = 'wikidatawiki-20200501-pages-meta-history1.xml-p1p242.bz2'
-    process_xml_dump(filename)
+# print_out_bz2_file(Path.cwd() / "filtered_triple_operations.txt.bz2")
+# print_out_bz2_file(Path.cwd() / "Compiled_triple_operations" / "compiled_triple_operations.txt.bz2")
+# print(get_triple_operations_list(Path.cwd() / "revision_files" / "Q79873096.json.bz2"))
+# print_out_bz2_file(Path.cwd() / "revision_files" / "Q79873096.json.bz2")
+# print(get_triple_operations_list(Path.cwd() / "revision_files" / "Q79873096.json.bz2"))
+# print(save_triple_operations(Path.cwd() / "revision_files" / "Q79873096.json.bz2"))
+# print_out_bz2_file(Path.cwd()/"triple_operations"/"Q79873096.txt.bz2")
 
-    # open_entity_revision_json_file("revision_files/Q3918736.json.bz2")
 
-    # filename = 'Q3918780.json.bz2'
-    # filepath = Path.cwd() / 'revision_files' / filename
-    # triple_list = get_triple_operations_list(filepath)
-    # triple_list.append(1
+# filename = 'wikidatawiki-20200501-pages-meta-history20.xml-p19981616p20061203.bz2'
+# filename = 'wikidatawiki-20200501-pages-meta-history1.xml-p1p242.bz2'
+# process_xml_dump(filename)
 
-    # save_triple_operations("Q3921737")
-    # print_out_bz2_file(Path.cwd() / "revision_files" / "Q15.json.bz2")
-    # print_out_bz2_file(Path.cwd() / "triple_operations" / "Q3921737.txt.bz2")
+# open_entity_revision_json_file("revision_files/Q3918736.json.bz2")
 
-    #
+# filename = 'Q3918780.json.bz2'
+# filepath = Path.cwd() / 'revision_files' / filename
+# triple_list = get_triple_operations_list(filepath)
+# triple_list.append(1
+
+# save_triple_operations("Q3921737")
+
+# print_out_bz2_file(Path.cwd() / "revision_files" / "Q15.json.bz2")
+# save_triple_operations(Path.cwd() / "revision_files" / "Q15.json.bz2")
+# print_out_bz2_file(Path.cwd() / "triple_operations" / "Q15.txt.bz2")
