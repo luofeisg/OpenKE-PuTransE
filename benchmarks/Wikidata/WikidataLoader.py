@@ -730,22 +730,12 @@ def main():
 
     ### Get list of XML dumps with urls to download and process.
     xml_dump_file_list = get_wikidata_dump_filelist()
-    xml_dump_file_list = xml_dump_file_list[:2]
 
     ### Download files and extract revision information
     print("Download history xml dumps from URL https://dumps.wikimedia.org/wikidatawiki/ and extract revision information")
     with ProcessPoolExecutor() as executor:
         for file_dict, _ in zip(xml_dump_file_list, executor.map(download_and_process_xml_dump, xml_dump_file_list)):
             print('File {} has been processed succesfully: {}'.format(file_dict["filename"], datetime.now()))
-
-    # print("Download history xml dumps from URL https://dumps.wikimedia.org/wikidatawiki/.")
-    # download_wikidata_history_dumps(wikidata_dump_date=20200501)
-
-    # ### Extract revisions
-    # print("Extract revision information from xml dumps.")
-    # with ProcessPoolExecutor() as executor:
-    #     for file, _ in zip(xml_dump_file_list, executor.map(process_xml_dump, xml_dump_file_list)):
-    #         print('File {} has been processed succesfully: {}'.format(file, datetime.now()))
 
     ### Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
