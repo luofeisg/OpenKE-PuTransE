@@ -18,7 +18,11 @@ from concurrent.futures import ProcessPoolExecutor
 
 
 #################################### Download Wikidata Dumps ####################################
+
 def download_file(url, file):
+    # Helper function to download large files in chunks #
+    # Used to download the xml history dumps            #
+
     response = urlopen(url)
     CHUNK = 16 * 1024
     with open(file, 'wb') as f:
@@ -29,47 +33,112 @@ def download_file(url, file):
             f.write(chunk)
 
 
-def download_wikidata_history_dumps(wikidata_dump_date=20200501):
+def process_checksum_file(checksum_file, wikidata_dump_date):
+    checksum_folder = checksum_file.parents[0]
+
+    # XML history file pattern
+    file_pattern = re.compile(r"[\s\S]*pages-meta-history.*\.bz2$$")
+
+    with checksum_file.open() as file:
+        for line in file:
+            hash, filename = line.split()
+            if file_pattern.match(filename):
+                checksum_filename = filename + "_checksum.txt"
+                with open(checksum_folder / checksum_filename, mode="at", encoding="UTF-8") as out:
+                    out.write(hash)
+
+
+def get_wikidata_dump_filelist(wikidata_dump_date=20200501):
+    # Get list of xml history files and their URLs. #
+    # Download and process checksums in order to    #
+    # validate the downloaded files                 #
+
     wikidata_url = 'https://dumps.wikimedia.org'
 
     response = urlopen(wikidata_url + '/wikidatawiki/' + str(wikidata_dump_date))
     soup = BeautifulSoup(response, "html.parser")
 
     # Load checksums of Wikidata dumps
-    checksum_file_name = 'wikidatawiki-{}-md5sums.txt'.format(wikidata_dump_date)
-    checksum_file = Path.cwd() / checksum_file_name
+    checksum_folder = Path.cwd() / "checksums_{}".format(wikidata_dump_date)
+    checksum_folder.mkdir(exist_ok=True)
 
-    # -- Download checksum list if not already done
+    checksum_file = checksum_folder / 'wikidatawiki-{}-md5sums.txt'.format(wikidata_dump_date)
     if not checksum_file.exists():
         checksum_el = soup.find('a', href=re.compile(r'[\s\S]*md5sums*\.txt$$'))
         checksum_file_link = wikidata_url + checksum_el.get('href')
-        download_file(checksum_file_link, checksum_file_name)
+        download_file(checksum_file_link, checksum_file)
+        process_checksum_file(checksum_file, wikidata_dump_date)
 
-    # -- Load hashes out of file
-    file_hash_dict = {}
-    with checksum_file.open() as file:
-        for line in file:
-            hash, filename = line.split()
-            file_hash_dict[filename] = hash
-
-    # Load Wikidata history dumps
     # -- Get relevant filenames and URLs of relevant dumps
     link_elements = soup.find_all('a', href=re.compile(r'[\s\S]*pages-meta-history.*\.bz2$$'))
-    dumps = [{'filename': element.getText(), 'url': element.get('href')} for element in link_elements]
+    dumps = [{"filename": element.getText(),
+              "url": element.get('href'),
+              "dumpdate": wikidata_dump_date}
+             for element in link_elements]
 
-    # -- download files and verify hashes
-    for dump in dumps:
-        filename = dump['filename']
-        uri = dump['url']
-        download_file('https://dumps.wikimedia.org/' + uri, filename)
+    return dumps
 
-        if file_hash_dict[filename] == hashlib.md5(open(filename, 'rb').read()).hexdigest():
-            print('File {} downloaded successfully'.format(filename))
-        else:
-            print('Downloaded File {} has wrong md5-hash'.format(filename))
 
-    # Return list with downloaded files
-    # return [dump["filename"] for dump in dumps]
+def validate_file_checksum(file, wikidata_dump_date):
+    filename = file.name
+
+    # Load checksum of xml dump
+    checksum_filename = filename + "_checksum.txt"
+    checksum_file = Path.cwd() / "checksums_{}".format(wikidata_dump_date) / checksum_filename
+    with open(checksum_file, mode="rt", encoding="UTF-8") as f:
+        checksum = f.read()
+
+    # Validate downloaded file
+    if checksum == hashlib.md5(open(file, 'rb').read()).hexdigest():
+        print('File {} downloaded successfully'.format(filename))
+    else:
+        print('Downloaded File {} has wrong md5-hash'.format(filename))
+
+
+def download_xml_dump(file_download_dict):
+    filename = file_download_dict["filename"]
+    wikidata_dump_date = file_download_dict["dumpdate"]
+    uri = file_download_dict["url"]
+
+    xml_dumps_folder = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
+    xml_dumps_folder.mkdir(exist_ok=True)
+    xml_dump_file = xml_dumps_folder / filename
+
+    download_file('https://dumps.wikimedia.org/' + uri, xml_dump_file)
+    validate_file_checksum(xml_dump_file, wikidata_dump_date)
+
+
+# def download_wikidata_history_dumps(filename, url, wikidata_dump_date=20200501):
+#     # Load checksums of Wikidata dumps
+#     checksum_file_name = 'wikidatawiki-{}-md5sums.txt'.format(wikidata_dump_date)
+#     checksum_file = Path.cwd() / checksum_file_name
+#
+#     # -- Download checksum list if not already done
+#     if not checksum_file.exists():
+#         checksum_el = soup.find('a', href=re.compile(r'[\s\S]*md5sums*\.txt$$'))
+#         checksum_file_link = wikidata_url + checksum_el.get('href')
+#         download_file(checksum_file_link, checksum_file_name)
+#
+#     # -- Load hashes out of file
+#     file_hash_dict = {}
+#     with checksum_file.open() as file:
+#         for line in file:
+#             hash, filename = line.split()
+#             file_hash_dict[filename] = hash
+#
+#     # -- download files and verify hashes
+#     for dump in dumps:
+#         filename = dump['filename']
+#         uri = dump['url']
+#         download_file('https://dumps.wikimedia.org/' + uri, filename)
+#
+#         if file_hash_dict[filename] == hashlib.md5(open(filename, 'rb').read()).hexdigest():
+#             print('File {} downloaded successfully'.format(filename))
+#         else:
+#             print('Downloaded File {} has wrong md5-hash'.format(filename))
+
+# Return list with downloaded files
+# return [dump["filename"] for dump in dumps]
 
 
 #################################### Extract and save xml dump information ####################################
@@ -215,13 +284,10 @@ def get_triple_operations_list(revision_file):
 
 
 def save_triple_operations(item_revision_file):
-    if item_revision_file.exists():
-        item_triple_operations = get_triple_operations_list(item_revision_file)
-        item_revision_filename = item_revision_file.name
-        item_id = item_revision_filename[:item_revision_filename.find(".")]
-    else:
-        print("No revision file {} found.".format(item_revision_file))
-        return
+    item_triple_operations = get_triple_operations_list(item_revision_file)
+    item_revision_filename = item_revision_file.name
+    item_id = item_revision_filename[:item_revision_filename.find(".")]
+
     triple_operations_folder = Path.cwd() / 'triple_operations'
     triple_operations_folder.mkdir(exist_ok=True)
 
@@ -232,7 +298,7 @@ def save_triple_operations(item_revision_file):
             f.write(line + "\n")
 
 
-def save_revision_dict_to_json_file(item_id, revision_dict):
+def save_revision_dict_to_json_file(item_id, revision_dict, item_is_redirected):
     # For us, an entity is created if there is a first revision which contains at least one claim.
     # Since it is possible that an entity may not have any claims if its corresponding page is created, we do not track
     # such cases. This means that we only track empty claim lists if revisions with at least one claim have already
@@ -241,14 +307,15 @@ def save_revision_dict_to_json_file(item_id, revision_dict):
     revision_files_folder = Path.cwd() / 'revision_files'
     revision_files_folder.mkdir(exist_ok=True)
 
-    entity_file_path = revision_files_folder / "{}.json.bz2".format(item_id)
+    output_filename = "redirected_{}.json.bz2".format(item_id) if item_is_redirected else "{}.json.bz2".format(item_id)
+    output_filepath = revision_files_folder / output_filename
 
-    if (not entity_file_path.exists()) and len(revision_dict["claims"]) == 0:
+    if (not output_filepath.exists()) and len(revision_dict["claims"]) == 0:
         return
 
     else:
         revision_json = json.dumps(revision_dict)
-        with bz2.open("revision_files/{}.json.bz2".format(item_id), mode="at", encoding="UTF-8") as f:
+        with bz2.open(output_filepath, mode="at", encoding="UTF-8") as f:
             f.write(revision_json + "\n")
 
     # {
@@ -494,12 +561,8 @@ def get_truthy_claims_list(item_dict):
 
 
 def process_xml_dump(file):
-    # mode can either be "analysis" or "extraction".
-    # mode = "analysis": Traverses XML dump and calculate statistics to enable the exploration of the underlying data
-    # mode = "extraction":
     print(datetime.now().strftime("%H:%M:%S"))
-
-    with DecompressingTextIOWrapper(Path(file), encoding="UTF-8", progress_bar=True) as xmlf:
+    with DecompressingTextIOWrapper(file, encoding="UTF-8", progress_bar=True) as xmlf:
         # with bz2.open(file, "rt", encoding="UTF-8") as xmlf:
         print(datetime.now().strftime("%H:%M:%S"))
 
@@ -531,10 +594,7 @@ def process_xml_dump(file):
             elif line.startswith("      <format>"):
                 format = line[len("      <format>"):-len("</format>\n")]
             elif line.startswith("      <text bytes"):
-                if format == 'application/json' \
-                        and item_id \
-                        and item_id.startswith("Q") \
-                        and not item_is_redirected:
+                if format == 'application/json' and item_id and item_id.startswith("Q"):
                     # Parse Text
                     text = line[line.find('>') + 1: -len('</text>') - 1]
 
@@ -549,7 +609,7 @@ def process_xml_dump(file):
                         if 'type' in item_dict and 'id' in item_dict:
                             claim_triple_list = get_truthy_claims_list(item_dict)
                             revision_dict = create_revision_dict(item_id, revision_id, timestamp, claim_triple_list)
-                            save_revision_dict_to_json_file(item_id, revision_dict)
+                            save_revision_dict_to_json_file(item_id, revision_dict, item_is_redirected)
 
                         # elif 'entity' in item_dict and 'redirect' in item_dict and item_is_redirected:
                         # source_item_id = item_dict["entity"]
@@ -592,6 +652,21 @@ def process_xml_dump(file):
         print(datetime.now().strftime("%H:%M:%S"))
 
 
+def download_and_process_xml_dump(file_download_dict):
+    filename = file_download_dict["filename"]
+    wikidata_dump_date = file_download_dict["dumpdate"]
+
+    print("Download file {}".format(filename))
+    download_xml_dump(file_download_dict)
+
+    print("Process file {}".format(filename))
+    xml_dump_file = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date) / filename
+    process_xml_dump(xml_dump_file)
+
+    print("Delete processed file {}".format(filename))
+    xml_dump_file.unlink()
+
+
 def compile_triple_operations():
     # If not exists: Create output directory
     output_path = Path.cwd() / "compiled_triple_operations"
@@ -623,10 +698,11 @@ def compile_triple_operations():
 
 def filter_compiled_triple_operations(items_filter_list, predicates_filter_list):
     compiled_triples_path = Path.cwd() / "compiled_triple_operations"
-    raw_triples_file = "compiled_triple_operations_raw.txt.bz2"
+    raw_triples_file = compiled_triples_path / "compiled_triple_operations_raw.txt.bz2"
 
     with bz2.open(compiled_triples_path / "compiled_triple_operations_filtered.txt.bz2", "wt") as output:
         with bz2.open(raw_triples_file, mode="rt", encoding="UTF-8") as input:
+            # with DecompressingTextIOWrapper(raw_triples_file, encoding="UTF-8", progress_bar=True) as input:
             for line in input:
                 subj, objc, pred, op_type, ts = line.split()
                 if int(subj) in items_filter_list and int(objc) in items_filter_list and int(
@@ -647,26 +723,34 @@ def read_filter_file(file):
 
 def main():
     wikidata_path = Path.cwd()
-    print("Current Path is {}".format(wikidata_path))
+    print("Current Path is {}.".format(wikidata_path))
 
-    ### Download XML dumps
-    print("Download history xml dumps from URL https://dumps.wikimedia.org/wikidatawiki/.")
-    download_wikidata_history_dumps(wikidata_dump_date=20200501)
+    wikidata_dump_date = "20200501"
+    print("Start extraction process for xml history files dumped on {}.".format(wikidata_dump_date))
 
-    print("Save paths of downloaded files into list.")
-    xml_dump_file_list = [xml_dump_file for xml_dump_file in wikidata_path.glob('*pages-meta-history*')]
-    xml_dump_file_list = xml_dump_file_list[:3]
+    ### Get list of XML dumps with urls to download and process.
+    xml_dump_file_list = get_wikidata_dump_filelist()
+    xml_dump_file_list = xml_dump_file_list[:2]
 
-    ### Extract revisions
-    print("Extract revision information from xml dumps.")
+    ### Download files and extract revision information
+    print("Download history xml dumps from URL https://dumps.wikimedia.org/wikidatawiki/ and extract revision information")
     with ProcessPoolExecutor() as executor:
-        for file, _ in zip(xml_dump_file_list, executor.map(process_xml_dump, xml_dump_file_list)):
-            print('File {} has been processed succesfully: {}'.format(file, datetime.now()))
+        for file_dict, _ in zip(xml_dump_file_list, executor.map(download_and_process_xml_dump, xml_dump_file_list)):
+            print('File {} has been processed succesfully: {}'.format(file_dict["filename"], datetime.now()))
+
+    # print("Download history xml dumps from URL https://dumps.wikimedia.org/wikidatawiki/.")
+    # download_wikidata_history_dumps(wikidata_dump_date=20200501)
+
+    # ### Extract revisions
+    # print("Extract revision information from xml dumps.")
+    # with ProcessPoolExecutor() as executor:
+    #     for file, _ in zip(xml_dump_file_list, executor.map(process_xml_dump, xml_dump_file_list)):
+    #         print('File {} has been processed succesfully: {}'.format(file, datetime.now()))
 
     ### Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
     revision_files_path = wikidata_path / "revision_files"
-    json_revision_files = [rev_file for rev_file in revision_files_path.glob('*json.bz2*')]
+    json_revision_files = [rev_file for rev_file in revision_files_path.iterdir() if not rev_file.name.startswith("redirected")]
 
     print("Extract triple operations from json revision files.")
     with ProcessPoolExecutor() as executor:
@@ -686,29 +770,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-# print_out_bz2_file(Path.cwd() / "filtered_triple_operations.txt.bz2")
-# print_out_bz2_file(Path.cwd() / "Compiled_triple_operations" / "compiled_triple_operations.txt.bz2")
-# print(get_triple_operations_list(Path.cwd() / "revision_files" / "Q79873096.json.bz2"))
-# print_out_bz2_file(Path.cwd() / "revision_files" / "Q79873096.json.bz2")
-# print(get_triple_operations_list(Path.cwd() / "revision_files" / "Q79873096.json.bz2"))
-# print(save_triple_operations(Path.cwd() / "revision_files" / "Q79873096.json.bz2"))
-# print_out_bz2_file(Path.cwd()/"triple_operations"/"Q79873096.txt.bz2")
-
-
-# filename = 'wikidatawiki-20200501-pages-meta-history20.xml-p19981616p20061203.bz2'
-# filename = 'wikidatawiki-20200501-pages-meta-history1.xml-p1p242.bz2'
-# process_xml_dump(filename)
-
-# open_entity_revision_json_file("revision_files/Q3918736.json.bz2")
-
-# filename = 'Q3918780.json.bz2'
-# filepath = Path.cwd() / 'revision_files' / filename
-# triple_list = get_triple_operations_list(filepath)
-# triple_list.append(1
-
-# save_triple_operations("Q3921737")
-
-# print_out_bz2_file(Path.cwd() / "revision_files" / "Q15.json.bz2")
-# save_triple_operations(Path.cwd() / "revision_files" / "Q15.json.bz2")
-# print_out_bz2_file(Path.cwd() / "triple_operations" / "Q15.txt.bz2")
