@@ -562,8 +562,8 @@ def get_truthy_claims_list(item_dict):
 
 def process_xml_dump(file):
     print(datetime.now().strftime("%H:%M:%S"))
-    with DecompressingTextIOWrapper(file, encoding="UTF-8", progress_bar=True) as xmlf:
-        # with bz2.open(file, "rt", encoding="UTF-8") as xmlf:
+    #with DecompressingTextIOWrapper(file, encoding="UTF-8", progress_bar=True) as xmlf:
+    with bz2.open(file, "rt", encoding="UTF-8") as xmlf:
         print(datetime.now().strftime("%H:%M:%S"))
 
         item_id = None
