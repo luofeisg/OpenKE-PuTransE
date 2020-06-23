@@ -11,7 +11,7 @@ import json
 from qwikidata.entity import WikidataItem
 from datetime import datetime
 
-from nasty_utils import DecompressingTextIOWrapper
+# from nasty_utils import DecompressingTextIOWrapper
 from collections import Counter, defaultdict
 from pprint import pprint
 from concurrent.futures import ProcessPoolExecutor
