@@ -108,6 +108,14 @@ def download_xml_dump(file_download_dict):
     validate_file_checksum(xml_dump_file, wikidata_dump_date)
 
 
+def download_wikidata_history_dumps(wikidata_dump_date):
+    ### Get list of XML dumps with urls to download and process and download files
+    xml_dump_file_list = get_wikidata_dump_filelist(wikidata_dump_date)
+    for xml_dump_file_dict in xml_dump_file_list:
+        filename = xml_dump_file_dict["filename"]
+        print("Download file {} at {}.".format(filename, datetime.now()))
+        download_xml_dump(xml_dump_file_dict)
+
 # def download_wikidata_history_dumps(filename, url, wikidata_dump_date=20200501):
 #     # Load checksums of Wikidata dumps
 #     checksum_file_name = 'wikidatawiki-{}-md5sums.txt'.format(wikidata_dump_date)
@@ -562,7 +570,7 @@ def get_truthy_claims_list(item_dict):
 
 def process_xml_dump(file):
     print(datetime.now().strftime("%H:%M:%S"))
-    #with DecompressingTextIOWrapper(file, encoding="UTF-8", progress_bar=True) as xmlf:
+    # with DecompressingTextIOWrapper(file, encoding="UTF-8", progress_bar=True) as xmlf:
     with bz2.open(file, "rt", encoding="UTF-8") as xmlf:
         print(datetime.now().strftime("%H:%M:%S"))
 
@@ -666,6 +674,13 @@ def download_and_process_xml_dump(file_download_dict):
     print("Delete processed file {}".format(filename))
     xml_dump_file.unlink()
 
+def process_and_delete_xml_dump(file):
+    print("Process file {}".format(file.name))
+    process_xml_dump(file)
+
+    print("Delete processed file {}".format(file.name))
+    file.unlink()
+
 
 def compile_triple_operations():
     # If not exists: Create output directory
@@ -728,19 +743,23 @@ def main():
     wikidata_dump_date = "20200501"
     print("Start extraction process for xml history files dumped on {}.".format(wikidata_dump_date))
 
-    ### Get list of XML dumps with urls to download and process.
-    xml_dump_file_list = get_wikidata_dump_filelist()
+    ### Download XML history dumps
+    print("Download XML history dumps")
+    download_wikidata_history_dumps(wikidata_dump_date)
 
-    ### Download files and extract revision information
-    print("Download history xml dumps from URL https://dumps.wikimedia.org/wikidatawiki/ and extract revision information")
+    xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
+    xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir()]
+
+    print("Extract revision information from downloaded XML dumps...")
     with ProcessPoolExecutor() as executor:
-        for file_dict, _ in zip(xml_dump_file_list, executor.map(download_and_process_xml_dump, xml_dump_file_list)):
-            print('File {} has been processed succesfully: {}'.format(file_dict["filename"], datetime.now()))
+        for xml_file, _ in zip(xml_dump_file_list, executor.map(process_and_delete_xml_dump, xml_dump_file_list)):
+            print('File {} has been processed succesfully: {}'.format(xml_file.name, datetime.now()))
 
     ### Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
     revision_files_path = wikidata_path / "revision_files"
-    json_revision_files = [rev_file for rev_file in revision_files_path.iterdir() if not rev_file.name.startswith("redirected")]
+    json_revision_files = [rev_file for rev_file in revision_files_path.iterdir() if
+                           not rev_file.name.startswith("redirected")]
 
     print("Extract triple operations from json revision files.")
     with ProcessPoolExecutor() as executor:
