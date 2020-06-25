@@ -89,10 +89,13 @@ def validate_file_checksum(file, wikidata_dump_date):
         checksum = f.read()
 
     # Validate downloaded file
-    if checksum == hashlib.md5(open(file, 'rb').read()).hexdigest():
-        print('File {} downloaded successfully'.format(filename))
-    else:
-        print('Downloaded File {} has wrong md5-hash'.format(filename))
+    has_valid_checksum = checksum == hashlib.md5(open(file, 'rb').read()).hexdigest()
+    # if has_valid_checksum:
+    #     print('File {} downloaded successfully'.format(filename))
+    # else:
+    #     print('Downloaded File {} has wrong md5-hash'.format(filename))
+
+    return has_valid_checksum
 
 
 def download_xml_dump(file_download_dict):
@@ -109,12 +112,35 @@ def download_xml_dump(file_download_dict):
 
 
 def download_wikidata_history_dumps(wikidata_dump_date):
+    ### Create output folders to store the dumps
+    xml_dumps_folder = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
+    xml_dumps_folder.mkdir(exist_ok=True)
+    downloaded_marker_folder = xml_dumps_folder / "downloaded_dumps"
+    downloaded_marker_folder.mkdir(exist_ok=True)
+
     ### Get list of XML dumps with urls to download and process and download files
     xml_dump_file_list = get_wikidata_dump_filelist(wikidata_dump_date)
+    # xml_dump_file_list = [file for file in xml_dump_file_list if
+    #                       file["filename"] == "wikidatawiki-20200501-pages-meta-history27.xml-p56934357p56934729.bz2"]
     for xml_dump_file_dict in xml_dump_file_list:
-        filename = xml_dump_file_dict["filename"]
-        print("Download file {} at {}.".format(filename, datetime.now()))
-        download_xml_dump(xml_dump_file_dict)
+        dump_file = xml_dumps_folder / xml_dump_file_dict["filename"]
+        has_valid_checksum = False if not dump_file.exists() else validate_file_checksum(dump_file, wikidata_dump_date)
+
+        if dump_file.exists() and has_valid_checksum:
+            # Skip file as it was already downloaded successfully
+            print("Dump {} already downloaded - SKIPPED.".format(dump_file.name))
+            continue
+        elif dump_file.exists() and not has_valid_checksum:
+            # Delete dump if it exists but has no correct checksum to download it again
+            print("Dump {} exists but has no correct checksum.".format(dump_file.name))
+            dump_file.unlink()
+            print("Restart download of file {} at {}.".format(dump_file.name, datetime.now()))
+            download_xml_dump(xml_dump_file_dict)
+
+        if (not dump_file.exists()) and (not validate_file_checksum(dump_file, wikidata_dump_date)):
+            print("Download file {} at {}.".format(dump_file.name, datetime.now()))
+            download_xml_dump(xml_dump_file_dict)
+
 
 # def download_wikidata_history_dumps(filename, url, wikidata_dump_date=20200501):
 #     # Load checksums of Wikidata dumps
@@ -182,20 +208,6 @@ def create_revision_dict(item_id, revision_id, timestamp, claim_triple_list):
 
 
 def create_redirect_entry(filename, source_item_id, target_item_id):
-    # For redirections we store the source_item_id and dest_item_id as tuples. After finished processing and storing
-    # revision information, we merge the align the growth of claims in corresponding source_items and dest_items
-
-    # Procedure
-    # 1) Load redirects into dict with dest_item_id -> [source_id_1, source_id_2, ..] or
-    # maybe tuples (dest_id , source_id_1, source_id_2, ..)
-    #
-    # 2) Process all entity files:
-    # 2.1) Create 2 sets: one in which items are affected by redirects and one in which they are not
-    # 2.2) Process deletes, insertsions (deltas) of unaffected ones
-    # 2.3) Process all affected item_ids
-    # 2.3.1) Gather all tuples like (dest_id , source_id_1, source_id_2, ..)
-    # 2.3.2) Special Handling:
-
     # Create folder to store information about redirects
     redirects_log_folder = Path.cwd() / 'redirects'
     redirects_log_folder.mkdir(exist_ok=True)
@@ -292,25 +304,37 @@ def get_triple_operations_list(revision_file):
 
 
 def save_triple_operations(item_revision_file):
-    item_triple_operations = get_triple_operations_list(item_revision_file)
     item_revision_filename = item_revision_file.name
-    item_id = item_revision_filename[:item_revision_filename.find(".")]
 
-    triple_operations_folder = Path.cwd() / 'triple_operations'
-    triple_operations_folder.mkdir(exist_ok=True)
+    # Processed marker
+    processed_revision_files = Path.cwd() / item_revision_file.parents[0] / "processed_revision_files"
+    processed_revision_files.mkdir(exist_ok=True)
+    processed_rev_marker = processed_revision_files / "{}.processed".format(item_revision_filename)
 
-    with bz2.open(triple_operations_folder / "{}.txt.bz2".format(item_id), mode="at", encoding="UTF-8") as f:
-        # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
-        for op in item_triple_operations:
-            line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], op[4])
-            f.write(line + "\n")
+    if processed_rev_marker.exists():
+        print("Revision file {} already processed - Skip file.".format(item_revision_filename))
+    else:
+        item_id = item_revision_filename[:item_revision_filename.find(".")]
+        item_triple_operations = get_triple_operations_list(item_revision_file)
+
+        triple_operations_folder = Path.cwd() / 'triple_operations'
+        triple_operations_folder.mkdir(exist_ok=True)
+
+        with bz2.open(triple_operations_folder / "{}.txt.bz2".format(item_id), mode="at", encoding="UTF-8") as f:
+            # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
+            for op in item_triple_operations:
+                line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], op[4])
+                f.write(line + "\n")
+
+        # Mark revision as processed
+        processed_rev_marker.touch()
 
 
 def save_revision_dict_to_json_file(item_id, revision_dict, item_is_redirected):
-    # For us, an entity is created if there is a first revision which contains at least one claim.
-    # Since it is possible that an entity may not have any claims if its corresponding page is created, we do not track
-    # such cases. This means that we only track empty claim lists if revisions with at least one claim have already
-    # occurred before. In this case, all claims of the entity at hand might deleted.
+    # We draw all revisions of an item from the first revision that contains at least one claim.
+    # Since it is possible that an item is not attached to any claims in Wikidata, we exclude such cases.
+    # We only track revisions with empty claim lists if the entity possessed at least one claim before.
+    # In this case, all claims of the entity at hand might deleted.
 
     revision_files_folder = Path.cwd() / 'revision_files'
     revision_files_folder.mkdir(exist_ok=True)
@@ -318,6 +342,7 @@ def save_revision_dict_to_json_file(item_id, revision_dict, item_is_redirected):
     output_filename = "redirected_{}.json.bz2".format(item_id) if item_is_redirected else "{}.json.bz2".format(item_id)
     output_filepath = revision_files_folder / output_filename
 
+    # Catch cases in which the claim list is empty and no revisions for an entity have been stored before
     if (not output_filepath.exists()) and len(revision_dict["claims"]) == 0:
         return
 
@@ -386,7 +411,7 @@ def get_truthy_claims_list(item_dict):
         item_id = item_dict["id"]
         claim_list_dict = item_dict["claims"]
 
-        for property, claim_list in claim_list_dict.items():
+        for proprty, claim_list in claim_list_dict.items():
             preferred_statements = []
             normal_statements = []
 
@@ -407,18 +432,17 @@ def get_truthy_claims_list(item_dict):
                         # | 'time'
                         # | 'quantity'
                         # | 'globecoordinate'])
-
                         mainsnak_type = mainsnak['datavalue']['type']
                         if mainsnak_type == 'wikibase-entityid':
 
                             objct_dict = mainsnak['datavalue']['value']
                             objct_type = objct_dict['entity-type']
 
-                            # check object_type is Item
-                            # (Otherwise it is a Property)
+                            # check if object_type is 'item'
+                            # (Otherwise it is a 'property')
                             if objct_type == "item":
                                 # object_id = "Q{}".format(object_dict["numeric-id"])
-                                triple = (int(item_id[1:]), int(property[1:]), int(objct_dict["numeric-id"]))
+                                triple = (int(item_id[1:]), int(proprty[1:]), int(objct_dict["numeric-id"]))
 
                                 if rank == "preferred":
                                     preferred_statements.append(triple)
@@ -431,7 +455,7 @@ def get_truthy_claims_list(item_dict):
                                         objct_dict["numeric-id"],
                                         objct_dict["id"][1:]))
 
-            statements.extend(preferred_statements) if len(preferred_statements) != 0 else statements.extend(
+            statements.extend(preferred_statements) if len(preferred_statements) > 0 else statements.extend(
                 normal_statements)
 
     return statements
@@ -569,7 +593,7 @@ def get_truthy_claims_list(item_dict):
 
 
 def process_xml_dump(file):
-    print(datetime.now().strftime("%H:%M:%S"))
+    print("Started processing file {} at {}.".format(file.name, datetime.now().strftime("%H:%M:%S")))
     # with DecompressingTextIOWrapper(file, encoding="UTF-8", progress_bar=True) as xmlf:
     with bz2.open(file, "rt", encoding="UTF-8") as xmlf:
         print(datetime.now().strftime("%H:%M:%S"))
@@ -587,7 +611,7 @@ def process_xml_dump(file):
             if line.startswith("    <title>"):
                 item_id = line[len("    <title>"):-len("</title>\n")]
 
-            if line.startswith("    <redirect title"):
+            if line.startswith("    <redirect title") and item_id.startswith("Q"):
                 redir_target_item_id = line[len("    <redirect title ="):-len("\" />\n")]
                 # create redirect entry
                 item_is_redirected = True
@@ -611,10 +635,10 @@ def process_xml_dump(file):
                         text = unescape(text)
                         item_dict = json.loads(text)
 
-                        # Process and store information about revisions of an Wikidata item in JSON
-                        # check if item_dict contains "type" and "id" as keys
-                        # --> Otherwise keys of item_dict are either ("entity", "redirect") or ("flow-workflow")
+                        # Check if item_dict contains "type" and "id" as keys
+                        # --> Otherwise, keys of item_dict are either ("entity", "redirect") or ("flow-workflow")
                         if 'type' in item_dict and 'id' in item_dict:
+                            # Process and store information about revisions of an Wikidata item in JSON
                             claim_triple_list = get_truthy_claims_list(item_dict)
                             revision_dict = create_revision_dict(item_id, revision_id, timestamp, claim_triple_list)
                             save_revision_dict_to_json_file(item_id, revision_dict, item_is_redirected)
@@ -655,31 +679,42 @@ def process_xml_dump(file):
                 page_id = None
                 item_id = None
                 item_is_redirected = False
+                redir_target_item_id = None
                 redir_item_id = None
 
         print(datetime.now().strftime("%H:%M:%S"))
 
 
-def download_and_process_xml_dump(file_download_dict):
-    filename = file_download_dict["filename"]
-    wikidata_dump_date = file_download_dict["dumpdate"]
+# def download_and_process_xml_dump(file_download_dict):
+#     filename = file_download_dict["filename"]
+#     wikidata_dump_date = file_download_dict["dumpdate"]
+#
+#     print("Download file {}".format(filename))
+#     download_xml_dump(file_download_dict)
+#
+#     print("Process file {}".format(filename))
+#     xml_dump_file = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date) / filename
+#     process_xml_dump(xml_dump_file)
+#
+#     print("Delete processed file {}".format(filename))
+#     xml_dump_file.unlink()
 
-    print("Download file {}".format(filename))
-    download_xml_dump(file_download_dict)
 
-    print("Process file {}".format(filename))
-    xml_dump_file = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date) / filename
-    process_xml_dump(xml_dump_file)
+def process_dump_file(file):
+    print("Process file {}\n".format(file.name))
 
-    print("Delete processed file {}".format(filename))
-    xml_dump_file.unlink()
+    # Mark file as processed by creating a file with extension ".processed" in the sub folder "processed dumps" so
+    # we can see if file has been already processed after restarting the long extraction process again after an
+    # interruption
+    processed_xml_dumps_folder = Path.cwd() / file.parents[0] / "processed_dumps"
+    processed_xml_dumps_folder.mkdir(exist_ok=True)
+    processed_marker = processed_xml_dumps_folder / "{}.processed".format(file.name)
 
-def process_and_delete_xml_dump(file):
-    print("Process file {}".format(file.name))
-    process_xml_dump(file)
-
-    print("Delete processed file {}".format(file.name))
-    file.unlink()
+    if processed_marker.exists():
+        print("File {} already processed - Skip file.".format(file.name))
+    else:
+        process_xml_dump(file)
+        processed_marker.touch()
 
 
 def compile_triple_operations():
@@ -744,27 +779,31 @@ def main():
     print("Start extraction process for xml history files dumped on {}.".format(wikidata_dump_date))
 
     ### Download XML history dumps
-    print("Download XML history dumps")
-    download_wikidata_history_dumps(wikidata_dump_date)
+    # print("Download XML history dumps")
+    # download_wikidata_history_dumps(wikidata_dump_date)
 
-    xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
-    xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir()]
-
-    print("Extract revision information from downloaded XML dumps...")
-    with ProcessPoolExecutor() as executor:
-        for xml_file, _ in zip(xml_dump_file_list, executor.map(process_and_delete_xml_dump, xml_dump_file_list)):
-            print('File {} has been processed succesfully: {}'.format(xml_file.name, datetime.now()))
+    ## Extract revision information about triple
+    # xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
+    # xml_dumps_file_pattern = re.compile(r"[\s\S]*pages-meta-history.*\.bz2$$")
+    # xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir() if
+    #                       xml_dump.is_file() and xml_dumps_file_pattern.match(xml_dump.name)]
+    #
+    # print("Extract revision information from downloaded XML dumps...")
+    # with ProcessPoolExecutor() as executor:
+    #     for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
+    #         print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
 
     ### Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
     revision_files_path = wikidata_path / "revision_files"
+    revision_file_pattern = re.compile(r"Q.*\.json\.bz2$$")
     json_revision_files = [rev_file for rev_file in revision_files_path.iterdir() if
-                           not rev_file.name.startswith("redirected")]
+                           revision_file_pattern.match(rev_file.name)]
 
     print("Extract triple operations from json revision files.")
     with ProcessPoolExecutor() as executor:
         for file, _ in zip(json_revision_files, executor.map(save_triple_operations, json_revision_files)):
-            print('Revision file {} processed succesfully at {}'.format(file.name, datetime.now()))
+            print('DONE processing {} at {}'.format(file.name, datetime.now()))
 
     ## Compile dataset with triple operations and replace redirected items
     print("Compile triple operations to single file and resolve redirected object items")
@@ -778,4 +817,5 @@ def main():
 
 
 if __name__ == '__main__':
+    # pprint(get_redirect_dict())
     main()
