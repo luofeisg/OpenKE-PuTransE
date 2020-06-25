@@ -45,7 +45,7 @@ void validHead(REAL *con, INT lastValidHead) {
     INT r = validList[lastValidHead].r;
     REAL minimal = con[h];
     INT l_filter_s = 0;
-    if (minimal != -1.0){ 
+    if (minimal != INFINITY){ 
         for (INT j = 0; j < entityTotal; j++) {
             if (j != h) {
                 REAL value = con[j];
@@ -71,7 +71,7 @@ void validTail(REAL *con, INT lastValidTail) {
     INT r = validList[lastValidTail].r;
     REAL minimal = con[t];
     INT r_filter_s = 0;
-    if (minimal != -1.0){ 
+    if (minimal != INFINITY){ 
         for (INT j = 0; j < entityTotal; j++) {
             if (j != t) {
                 REAL value = con[j];
