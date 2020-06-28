@@ -243,10 +243,10 @@ def extract_triple_operations(new_claims_set, old_claims_set, rev_ts, operation_
     triple_operations = new_claims_set - old_claims_set if operation_type == "ins" else old_claims_set - new_claims_set
     for operation in triple_operations:
         subjct = operation[0]
+        predicte = operation[1]
         objct = operation[2]
-        predicate = operation[1]
         op_type = "+" if operation_type == "ins" else "-"
-        triple_operations_list.append([subjct, objct, predicate, op_type, rev_ts])
+        triple_operations_list.append([subjct, objct, predicte, op_type, rev_ts])
 
     return triple_operations_list
 
@@ -280,7 +280,7 @@ def get_triple_operations_list(revision_file):
 
             # Process claims into set of tuples
             for claim in revision_claim_list:
-                # Verify that subject is item_id
+                # Verify that claim head (claim[0]) represents item_id
                 if claim[0] == int(item_id[1:]):
                     new_claims_set.add(tuple(claim))
                 else:
@@ -296,7 +296,7 @@ def get_triple_operations_list(revision_file):
             delete_operations = extract_triple_operations(new_claims_set, old_claims_set, rev_ts, operation_type="del")
             triple_operations.extend(delete_operations)
 
-            # Switch olds and new set
+            # Switch set new_claim_set to old_claim_set for processing the next revision in jsonf
             old_claims_set = new_claims_set
             new_claims_set = set()
 
@@ -314,13 +314,14 @@ def save_triple_operations(item_revision_file):
     if processed_rev_marker.exists():
         print("Revision file {} already processed - Skip file.".format(item_revision_filename))
     else:
+        # Cut out item id QXXX from filename pattern QXXX.json.bz2
         item_id = item_revision_filename[:item_revision_filename.find(".")]
         item_triple_operations = get_triple_operations_list(item_revision_file)
 
         triple_operations_folder = Path.cwd() / 'triple_operations'
         triple_operations_folder.mkdir(exist_ok=True)
 
-        with bz2.open(triple_operations_folder / "{}.txt.bz2".format(item_id), mode="at", encoding="UTF-8") as f:
+        with bz2.open(triple_operations_folder / "{}.txt.bz2".format(item_id), mode="wt", encoding="UTF-8") as f:
             # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
             for op in item_triple_operations:
                 line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], op[4])
@@ -778,22 +779,22 @@ def main():
     wikidata_dump_date = "20200501"
     print("Start extraction process for xml history files dumped on {}.".format(wikidata_dump_date))
 
-    ### Download XML history dumps
-    # print("Download XML history dumps")
-    # download_wikidata_history_dumps(wikidata_dump_date)
+    # Download XML history dumps
+    print("Download XML history dumps")
+    download_wikidata_history_dumps(wikidata_dump_date)
 
-    ## Extract revision information about triple
-    # xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
-    # xml_dumps_file_pattern = re.compile(r"[\s\S]*pages-meta-history.*\.bz2$$")
-    # xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir() if
-    #                       xml_dump.is_file() and xml_dumps_file_pattern.match(xml_dump.name)]
-    #
-    # print("Extract revision information from downloaded XML dumps...")
-    # with ProcessPoolExecutor() as executor:
-    #     for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
-    #         print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
+    # Extract revision information about triple
+    xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
+    xml_dumps_file_pattern = re.compile(r"[\s\S]*pages-meta-history.*\.bz2$$")
+    xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir() if
+                          xml_dump.is_file() and xml_dumps_file_pattern.match(xml_dump.name)]
 
-    ### Extract triple operations
+    print("Extract revision information from downloaded XML dumps...")
+    with ProcessPoolExecutor() as executor:
+        for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
+            print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
+
+    # Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
     revision_files_path = wikidata_path / "revision_files"
     revision_file_pattern = re.compile(r"Q.*\.json\.bz2$$")
@@ -805,7 +806,7 @@ def main():
         for file, _ in zip(json_revision_files, executor.map(save_triple_operations, json_revision_files)):
             print('DONE processing {} at {}'.format(file.name, datetime.now()))
 
-    ## Compile dataset with triple operations and replace redirected items
+    # Compile dataset with triple operations and replace redirected items
     print("Compile triple operations to single file and resolve redirected object items")
     compile_triple_operations()
 
@@ -817,5 +818,4 @@ def main():
 
 
 if __name__ == '__main__':
-    # pprint(get_redirect_dict())
     main()
