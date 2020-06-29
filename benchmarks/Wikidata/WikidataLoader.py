@@ -785,22 +785,22 @@ def main():
     wikidata_path = Path.cwd()
     print("Current Path is {}.".format(wikidata_path))
 
-    # print("Start extraction process for xml history files dumped on {}.".format(wikidata_dump_date))
-    #
-    # # Download XML history dumps
-    # print("Download XML history dumps")
-    # download_wikidata_history_dumps(wikidata_dump_date)
+    print("Start extraction process for xml history files dumped on {}.".format(wikidata_dump_date))
+
+    # Download XML history dumps
+    print("Download XML history dumps")
+    download_wikidata_history_dumps(wikidata_dump_date)
 
     # Extract revision information about triple
-    # xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
-    # xml_dumps_file_pattern = re.compile(r"[\s\S]*pages-meta-history.*\.bz2$$")
-    # xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir() if
-    #                       xml_dump.is_file() and xml_dumps_file_pattern.match(xml_dump.name)]
-    #
-    # print("Extract revision information from downloaded XML dumps...")
-    # with ProcessPoolExecutor() as executor:
-    #     for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
-    #         print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
+    xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
+    xml_dumps_file_pattern = re.compile(r"[\s\S]*pages-meta-history.*\.bz2$$")
+    xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir() if
+                          xml_dump.is_file() and xml_dumps_file_pattern.match(xml_dump.name)]
+
+    print("Extract revision information from downloaded XML dumps...")
+    with ProcessPoolExecutor() as executor:
+        for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
+            print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
 
     # Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
