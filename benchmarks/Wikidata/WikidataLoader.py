@@ -124,7 +124,7 @@ def download_wikidata_history_dumps(wikidata_dump_date):
     for xml_dump_file_dict in xml_dump_file_list:
         dump_file_name = xml_dump_file_dict["filename"]
         dump_file = xml_dumps_folder / dump_file_name
-        downloaded_marker_file = downloaded_marker_folder / dump_file_name
+        downloaded_marker_file = downloaded_marker_folder / "{}.downloaded".format(dump_file_name)
         # has_valid_checksum = False if not dump_file.exists() else validate_file_checksum(dump_file, wikidata_dump_date)
 
         if downloaded_marker_file.exists():
