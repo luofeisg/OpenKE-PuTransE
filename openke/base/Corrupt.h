@@ -4,15 +4,52 @@
 #include "Triple.h"
 #include "Reader.h"
 
+
+ // TODO: Corrupts are used in training sampling and triple classification. While an adjustment for sampling
+ // 	  is not necessary because we rely on a sampled, enumerated trainList in the ParallelUniverse configuration, 
+ //  	  in triple classification we rely on the global training set. 
+ //       So which approach to follow? 
+ //				-- understand corrupt methods
+ //             	--> return triple which are not in trainList
+ //					--> but if corrupted entity is not in knowledge graph at all 
+ // 					it has to be actually always false?
+ //					--> on the other side: we have to rather exclude triples which have to be added as 
+ // 					positive triples once. 
+ //				-- if necessary changes are too complex: Write tc in python?
+ //   			-- is it really necessary for tc
+ //				--> Answer: If we gather a deleted entity in the corruption process for triple classification, 
+ // 						the corrupted triple is ensured to be false. We expect the model to classify it as
+ //							false anyway, so we can rely on the current version of the corrupt_[head | tail]
+ //							algorithm
+
 INT corrupt_head(INT id, INT h, INT r, bool filter_flag = true) {
 	INT lef, rig, mid, ll, rr;
 	if (not filter_flag) {
+		
+	// INT relation_focus = NULL;
+    // if(!incrementalSetting){
+    //     relation_focus = rand(0, relationTotal); //sample relation r from R
+    // } else {
+    //     // In case of incremental setting sample relation from currently contained relations in the train set
+    //     INT rand_contained_relations_index = rand(0, num_currently_contained_relations);
+    //     relation_focus = currently_contained_relations[rand_contained_relations_index]; 
+    // }
+		
 		INT tmp = rand_max(id, entityTotal - 1);
+		// INT tmp = NULL;
+		// if(incrementalSetting){ 
+		// 	// Check if randomly generated entity was deleted - if true: generate another entity
+		// 	tmp = rand_max(id, entityTotal - 1);
+		// 	} 
+		// while (!checkIfEntityExists(tmp) || tmp == -1);
+		
 		if (tmp < h)
 			return tmp;
 		else
 			return tmp + 1;
 	}
+	// What if h is not in trainList --> error! So actually have all evaluate entities be in train data
+	// ANALYSE: What if h not in trainList and rigHead[h] = -1, lefHead[h] = 0
 	lef = lefHead[h] - 1;
 	rig = rigHead[h];
 	while (lef + 1 < rig) {
@@ -29,7 +66,15 @@ INT corrupt_head(INT id, INT h, INT r, bool filter_flag = true) {
 		rig = mid;
 	}
 	rr = lef;
+	
 	INT tmp = rand_max(id, entityTotal - (rr - ll + 1));
+	// INT tmp = -1;
+	// do { 
+	// 	// Check if randomly generated entity was deleted - if true: generate another entity
+	// 	tmp = rand_max(id, entityTotal - (rr - ll + 1));
+	// 	} 
+	// while (!checkIfEntityExists(tmp) || tmp == -1);
+
 	if (tmp < trainHead[ll].t) return tmp;
 	if (tmp > trainHead[rr].t - rr + ll - 1) return tmp + rr - ll + 1;
 	lef = ll, rig = rr + 1;
@@ -46,7 +91,16 @@ INT corrupt_head(INT id, INT h, INT r, bool filter_flag = true) {
 INT corrupt_tail(INT id, INT t, INT r, bool filter_flag = true) {
 	INT lef, rig, mid, ll, rr;
 	if (not filter_flag) {
+		
 		INT tmp = rand_max(id, entityTotal - 1);
+		// INT tmp = -1;
+		// // if (incrementalSetting) { 
+		// // 	// Check if randomly generated entity was deleted - if true: generate another entity
+		// // }else{
+		// // 	tmp = rand_max(id, entityTotal - 1);
+		// // 	} 
+		// // while (!checkIfEntityExists(tmp) || tmp == -1);
+		
 		if (tmp < t)
 			return tmp;
 		else
@@ -68,7 +122,15 @@ INT corrupt_tail(INT id, INT t, INT r, bool filter_flag = true) {
 		rig = mid;
 	}
 	rr = lef;
+	
 	INT tmp = rand_max(id, entityTotal - (rr - ll + 1));
+	// INT tmp = -1;
+	// do { 
+	// 	// Check if randomly generated entity was deleted - if true: generate another entity
+	// 	tmp = rand_max(id, entityTotal - (rr - ll + 1));
+	// 	} 
+	// while (!checkIfEntityExists(tmp) || tmp == -1);
+
 	if (tmp < trainTail[ll].h) return tmp;
 	if (tmp > trainTail[rr].h - rr + ll - 1) return tmp + rr - ll + 1;
 	lef = ll, rig = rr + 1;
