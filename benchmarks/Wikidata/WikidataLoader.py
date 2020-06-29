@@ -1,3 +1,4 @@
+import sys
 from bs4 import BeautifulSoup
 import re
 from random import sample, randint
@@ -90,12 +91,10 @@ def validate_file_checksum(file, wikidata_dump_date):
 
     # Validate downloaded file
     has_valid_checksum = checksum == hashlib.md5(open(file, 'rb').read()).hexdigest()
-    # if has_valid_checksum:
-    #     print('File {} downloaded successfully'.format(filename))
-    # else:
-    #     print('Downloaded File {} has wrong md5-hash'.format(filename))
-
-    return has_valid_checksum
+    if has_valid_checksum:
+        print('File {} downloaded successfully'.format(filename))
+    else:
+        sys.exit('Downloaded File {} has wrong md5-hash!'.format(filename))
 
 
 def download_xml_dump(file_download_dict):
@@ -123,23 +122,29 @@ def download_wikidata_history_dumps(wikidata_dump_date):
     # xml_dump_file_list = [file for file in xml_dump_file_list if
     #                       file["filename"] == "wikidatawiki-20200501-pages-meta-history27.xml-p56934357p56934729.bz2"]
     for xml_dump_file_dict in xml_dump_file_list:
-        dump_file = xml_dumps_folder / xml_dump_file_dict["filename"]
-        has_valid_checksum = False if not dump_file.exists() else validate_file_checksum(dump_file, wikidata_dump_date)
+        dump_file_name = xml_dump_file_dict["filename"]
+        dump_file = xml_dumps_folder / dump_file_name
+        downloaded_marker_file = downloaded_marker_folder / dump_file_name
+        # has_valid_checksum = False if not dump_file.exists() else validate_file_checksum(dump_file, wikidata_dump_date)
 
-        if dump_file.exists() and has_valid_checksum:
+        if downloaded_marker_file.exists():
             # Skip file as it was already downloaded successfully
-            print("Dump {} already downloaded - SKIPPED.".format(dump_file.name))
+            print("Dump {} already downloaded - SKIPPED.".format(dump_file_name))
             continue
-        elif dump_file.exists() and not has_valid_checksum:
-            # Delete dump if it exists but has no correct checksum to download it again
-            print("Dump {} exists but has no correct checksum.".format(dump_file.name))
-            dump_file.unlink()
-            print("Restart download of file {} at {}.".format(dump_file.name, datetime.now()))
-            download_xml_dump(xml_dump_file_dict)
+        else:
+            # If dump file exists but donwload marker not exists it means that previous download has been aborted
+            # or had no correct checksum
+            if dump_file.exists():
+                # Delete dump if it exists but has no correct checksum to download it again
+                print("Dump {} exists but was previously aborted.".format(dump_file_name))
+                dump_file.unlink()
+                print("Restart download of file {} at {}.".format(dump_file_name, datetime.now()))
+            else:
+                print("Download file {} at {}.".format(dump_file_name, datetime.now()))
 
-        if (not dump_file.exists()) and (not validate_file_checksum(dump_file, wikidata_dump_date)):
-            print("Download file {} at {}.".format(dump_file.name, datetime.now()))
             download_xml_dump(xml_dump_file_dict)
+            # Create 'successfully downloaded' marker
+            downloaded_marker_file.touch()
 
 
 # def download_wikidata_history_dumps(filename, url, wikidata_dump_date=20200501):
@@ -261,7 +266,7 @@ def get_triple_operations_list(revision_file):
         for line in jsonf:
             # Read revision dict from line
             revision_dict = json.loads(line)
-
+            revision_file_name = revision_file.name
             # Extract data
             item_id = revision_dict["item_id"]
             rev_ts = revision_dict["timestamp"]
@@ -272,11 +277,13 @@ def get_triple_operations_list(revision_file):
                 max_ts = rev_ts
             else:
                 print('current timestamp {} is earlier than max timestamp {} in file {}'.format(rev_ts, max_ts,
-                                                                                                revision_file))
+                                                                                                revision_file_name))
                 print(
                     "If sth goes wrong here, we have to sort the revision files with respect to the ts in ascending order")
-
-                return
+                buggy_revision_files_folder = Path.cwd() / revision_file.parents[0] / "buggy_revision_files"
+                buggy_revision_files_folder.mkdir(exist_ok=True)
+                buggy_revision_file_marker =  buggy_revision_files_folder / "{}.buggy".format(revision_file_name)
+                buggy_revision_file_marker.touch()
 
             # Process claims into set of tuples
             for claim in revision_claim_list:
@@ -314,8 +321,8 @@ def save_triple_operations(item_revision_file):
     if processed_rev_marker.exists():
         print("Revision file {} already processed - Skip file.".format(item_revision_filename))
     else:
-        # Cut out item id QXXX from filename pattern QXXX.json.bz2
-        item_id = item_revision_filename[:item_revision_filename.find(".")]
+        # Cut out item id QXXX from filename pattern <filedump_name>_QXXX.json.bz2
+        item_id = item_revision_filename[item_revision_filename.find("Q"):item_revision_filename.find(".json")]
         item_triple_operations = get_triple_operations_list(item_revision_file)
 
         triple_operations_folder = Path.cwd() / 'triple_operations'
@@ -331,7 +338,7 @@ def save_triple_operations(item_revision_file):
         processed_rev_marker.touch()
 
 
-def save_revision_dict_to_json_file(item_id, revision_dict, item_is_redirected):
+def save_revision_dict_to_json_file(dump_file_name, item_id, revision_dict, item_is_redirected):
     # We draw all revisions of an item from the first revision that contains at least one claim.
     # Since it is possible that an item is not attached to any claims in Wikidata, we exclude such cases.
     # We only track revisions with empty claim lists if the entity possessed at least one claim before.
@@ -340,7 +347,8 @@ def save_revision_dict_to_json_file(item_id, revision_dict, item_is_redirected):
     revision_files_folder = Path.cwd() / 'revision_files'
     revision_files_folder.mkdir(exist_ok=True)
 
-    output_filename = "redirected_{}.json.bz2".format(item_id) if item_is_redirected else "{}.json.bz2".format(item_id)
+    output_filename = "redirected_{}_{}.json.bz2".format(dump_file_name, item_id) \
+        if item_is_redirected else "{}_{}.json.bz2".format(dump_file_name, item_id)
     output_filepath = revision_files_folder / output_filename
 
     # Catch cases in which the claim list is empty and no revisions for an entity have been stored before
@@ -642,7 +650,7 @@ def process_xml_dump(file):
                             # Process and store information about revisions of an Wikidata item in JSON
                             claim_triple_list = get_truthy_claims_list(item_dict)
                             revision_dict = create_revision_dict(item_id, revision_id, timestamp, claim_triple_list)
-                            save_revision_dict_to_json_file(item_id, revision_dict, item_is_redirected)
+                            save_revision_dict_to_json_file(file.name, item_id, revision_dict, item_is_redirected)
 
                         # elif 'entity' in item_dict and 'redirect' in item_dict and item_is_redirected:
                         # source_item_id = item_dict["entity"]
@@ -773,31 +781,31 @@ def read_filter_file(file):
 
 
 def main():
+    wikidata_dump_date = "20200501"
     wikidata_path = Path.cwd()
     print("Current Path is {}.".format(wikidata_path))
 
-    wikidata_dump_date = "20200501"
-    print("Start extraction process for xml history files dumped on {}.".format(wikidata_dump_date))
-
-    # Download XML history dumps
-    print("Download XML history dumps")
-    download_wikidata_history_dumps(wikidata_dump_date)
+    # print("Start extraction process for xml history files dumped on {}.".format(wikidata_dump_date))
+    #
+    # # Download XML history dumps
+    # print("Download XML history dumps")
+    # download_wikidata_history_dumps(wikidata_dump_date)
 
     # Extract revision information about triple
-    xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
-    xml_dumps_file_pattern = re.compile(r"[\s\S]*pages-meta-history.*\.bz2$$")
-    xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir() if
-                          xml_dump.is_file() and xml_dumps_file_pattern.match(xml_dump.name)]
-
-    print("Extract revision information from downloaded XML dumps...")
-    with ProcessPoolExecutor() as executor:
-        for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
-            print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
+    # xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
+    # xml_dumps_file_pattern = re.compile(r"[\s\S]*pages-meta-history.*\.bz2$$")
+    # xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir() if
+    #                       xml_dump.is_file() and xml_dumps_file_pattern.match(xml_dump.name)]
+    #
+    # print("Extract revision information from downloaded XML dumps...")
+    # with ProcessPoolExecutor() as executor:
+    #     for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
+    #         print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
 
     # Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
     revision_files_path = wikidata_path / "revision_files"
-    revision_file_pattern = re.compile(r"Q.*\.json\.bz2$$")
+    revision_file_pattern = re.compile(r".*_Q.*\.json\.bz2$$")
     json_revision_files = [rev_file for rev_file in revision_files_path.iterdir() if
                            revision_file_pattern.match(rev_file.name)]
 
