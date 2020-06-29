@@ -2,6 +2,7 @@
 #define READER_H
 
 #include "Setting.h"
+#include "Utilities.h"
 #include "Triple.h"
 #include <cstdlib>
 #include <set>
@@ -26,41 +27,6 @@ Triple *trainRel2;
 INT *testLef, *testRig;
 INT *validLef, *validRig;
 
-void callocIntArray(INT* &arr, INT length) {
-    if(arr == NULL){
-        arr = (INT *) calloc(length, sizeof(INT));
-        // printf("INT array allocated.\n");
-    }
-    
-    if (!arr) {
-        printf("out of mem\n");
-        exit(EXIT_FAILURE);
-    }
-}
-
-void callocTripleArray(Triple* &arr, INT length) {
-    if(arr == NULL){
-        arr = (Triple *) calloc(length, sizeof(Triple));
-        // printf("Triple array allocated.\n");
-    }
-    
-    if (!arr) {
-        printf("out of mem\n");
-        exit(EXIT_FAILURE);
-    }
-}
-
-void callocRealArray(REAL* &arr, INT length) {
-    if(arr == NULL){
-        arr = (REAL *) calloc(length, sizeof(REAL));
-        // printf("REAL array allocated.\n");
-    }
-    
-    if (!arr) {
-        printf("out of mem\n");
-        exit(EXIT_FAILURE);
-    }
-}
 
 extern "C"
 void importProb(REAL temp) {
@@ -137,6 +103,7 @@ void loadHelpers(
     std::sort(trainingListRel, trainingListRel + trainingTotal, Triple::cmp_rel);
     std::sort(trainingListRel2, trainingListRel2 + trainingTotal, Triple::cmp_rel2);
 
+    // TODO change entityTotal, relationTotal to parameters entTotal, relTotal
     callocIntArray(leftIndexHead, entityTotal);
     callocIntArray(rightIndexHead, entityTotal);
     callocIntArray(leftIndexTail, entityTotal);
@@ -208,6 +175,7 @@ void importTrainFiles() {
     int tmp;
     
     fin = fopen((inPath + "relation2id.txt").c_str(), "r");
+    printf("Line Num: %ld.\n", getLineNum(fin));
     tmp = fscanf(fin, "%ld", &relationTotal);
     printf("The total of relations is %ld.\n", relationTotal);
     fclose(fin);
@@ -218,6 +186,7 @@ void importTrainFiles() {
     fclose(fin);
 
     fin = fopen((inPath + "train2id.txt").c_str(), "r");
+    printf("Line Num: %ld.\n", getLineNum(fin));
     tmp = fscanf(fin, "%ld", &trainTotal);
     trainList = (Triple *) calloc(trainTotal, sizeof(Triple));
     for (INT i = 0; i < trainTotal; i++) {
@@ -406,5 +375,24 @@ void importTypeFiles() {
     fclose(f_type);
 }
 
+void resetHelpers() {
+    resetTripleHelper(trainList);
+    resetTripleHelper(trainHead);
+    resetTripleHelper(trainTail);
+    resetTripleHelper(trainRel);
+    resetTripleHelper(trainRel2);
+    resetIntHelper(freqEnt);
+    resetIntHelper(freqRel);
+    resetIntHelper(lefHead);
+    resetIntHelper(rigHead);
+    resetIntHelper(lefTail);
+    resetIntHelper(rigTail);
+    resetIntHelper(lefRel);
+    resetIntHelper(rigRel);
+    resetIntHelper(lefRel2);
+    resetIntHelper(rigRel2);
+    resetRealHelper(left_mean);
+    resetRealHelper(right_mean);
+}
 
 #endif
