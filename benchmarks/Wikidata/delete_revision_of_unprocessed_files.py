@@ -55,6 +55,7 @@ def main():
     for filename in unprocessed_file_list:
         for revision_file in revision_files_path.glob("*{}*".format(filename)):
             revision_file.unlink()
+            print("Deleted {}.".format(revision_file.name))
 
 if __name__ == '__main__':
     main()
