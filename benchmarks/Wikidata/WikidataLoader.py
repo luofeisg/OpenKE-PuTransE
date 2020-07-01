@@ -314,7 +314,7 @@ def save_triple_operations(item_revision_file):
     item_revision_filename = item_revision_file.name
 
     # Processed marker
-    processed_revision_files = Path.cwd() / item_revision_file.parents[0] / "processed_revision_files"
+    processed_revision_files = Path.cwd() / item_revision_file.parents[1] / "processed_revision_files"
     processed_revision_files.mkdir(exist_ok=True)
     processed_rev_marker = processed_revision_files / "{}.processed".format(item_revision_filename)
 
@@ -328,7 +328,13 @@ def save_triple_operations(item_revision_file):
         triple_operations_folder = Path.cwd() / 'triple_operations'
         triple_operations_folder.mkdir(exist_ok=True)
 
-        with bz2.open(triple_operations_folder / "{}.txt.bz2".format(item_id), mode="wt", encoding="UTF-8") as f:
+        dump_subfolder = triple_operations_folder / item_revision_file.parents[0].name
+        dump_subfolder.mkdir(exist_ok=True)
+
+        output_filename = "{}.txt.bz2".format(item_id)
+        output_filepath = dump_subfolder / output_filename
+
+        with bz2.open(output_filepath, mode="wt", encoding="UTF-8") as f:
             # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
             for op in item_triple_operations:
                 line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], op[4])
@@ -347,9 +353,12 @@ def save_revision_dict_to_json_file(dump_file_name, item_id, revision_dict, item
     revision_files_folder = Path.cwd() / 'revision_files'
     revision_files_folder.mkdir(exist_ok=True)
 
+    dump_subfolder = revision_files_folder / '{}'.format(dump_file_name)
+    dump_subfolder.mkdir(exist_ok=True)
+
     output_filename = "redirected_{}_{}.json.bz2".format(dump_file_name, item_id) \
         if item_is_redirected else "{}_{}.json.bz2".format(dump_file_name, item_id)
-    output_filepath = revision_files_folder / output_filename
+    output_filepath = dump_subfolder / output_filename
 
     # Catch cases in which the claim list is empty and no revisions for an entity have been stored before
     if (not output_filepath.exists()) and len(revision_dict["claims"]) == 0:
@@ -733,14 +742,14 @@ def compile_triple_operations():
 
     # Path where triple ops are stored for each item
     triple_ops_path = Path.cwd() / 'triple_operations'
-
+    triple_ops_file_list = [file for file in triple_ops_path.rglob("*txt.bz2") if file.is_file()]
     # Load dict which maps source and target items in a redirect. We use it to replace redirected entities
     # with their target items
     redir_dict = get_redirect_dict()
 
     with bz2.open(output_path / "compiled_triple_operations_raw.txt.bz2", "wt") as output:
         # out.write('{}\n'.format(timestamp))
-        for triple_operations_log in triple_ops_path.iterdir():
+        for triple_operations_log in triple_ops_file_list:
             with bz2.open(triple_operations_log, mode="rt", encoding="UTF-8") as input:
                 for line in input:
                     # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
@@ -808,6 +817,8 @@ def main():
     revision_file_pattern = re.compile(r".*_Q.*\.json\.bz2$$")
     json_revision_files = [rev_file for rev_file in revision_files_path.iterdir() if
                            revision_file_pattern.match(rev_file.name)]
+    json_revision_files = [rev_file for rev_file in revision_files_path.rglob("*.json.bz2") if
+                           rev_file.is_file() and not rev_file.name.startswith("redirected")]
 
     print("Extract triple operations from json revision files.")
     with ProcessPoolExecutor() as executor:
