@@ -103,7 +103,6 @@ void loadHelpers(
     std::sort(trainingListRel, trainingListRel + trainingTotal, Triple::cmp_rel);
     std::sort(trainingListRel2, trainingListRel2 + trainingTotal, Triple::cmp_rel2);
 
-    // TODO change entityTotal, relationTotal to parameters entTotal, relTotal
     callocIntArray(leftIndexHead, entityTotal);
     callocIntArray(rightIndexHead, entityTotal);
     callocIntArray(leftIndexTail, entityTotal);
@@ -175,18 +174,19 @@ void importTrainFiles() {
     int tmp;
     
     fin = fopen((inPath + "relation2id.txt").c_str(), "r");
-    printf("Line Num: %ld.\n", getLineNum(fin));
+    // relationTotal = getLineNum(fin) - 1;
     tmp = fscanf(fin, "%ld", &relationTotal);
     printf("The total of relations is %ld.\n", relationTotal);
     fclose(fin);
 
     fin = fopen((inPath + "entity2id.txt").c_str(), "r");
+    // entityTotal = getLineNum(fin) - 1;
     tmp = fscanf(fin, "%ld", &entityTotal);
     printf("The total of entities is %ld.\n", entityTotal);
     fclose(fin);
 
     fin = fopen((inPath + "train2id.txt").c_str(), "r");
-    printf("Line Num: %ld.\n", getLineNum(fin));
+    // trainTotal = getLineNum(fin) - 1;
     tmp = fscanf(fin, "%ld", &trainTotal);
     trainList = (Triple *) calloc(trainTotal, sizeof(Triple));
     for (INT i = 0; i < trainTotal; i++) {
@@ -237,6 +237,7 @@ Triple *testList;
 Triple *validList;
 Triple *tripleList;
 
+
 extern "C"
 void importTestFiles() {
     FILE *fin;
@@ -257,6 +258,8 @@ void importTestFiles() {
     tmp = fscanf(f_kb2, "%ld", &trainTotal);
     tmp = fscanf(f_kb3, "%ld", &validTotal);
     tripleTotal = testTotal + trainTotal + validTotal;
+    printf("The total of test triples is %ld.\n", tripleTotal);
+    
     testList = (Triple *) calloc(testTotal, sizeof(Triple));
     validList = (Triple *) calloc(validTotal, sizeof(Triple));
     tripleList = (Triple *) calloc(tripleTotal, sizeof(Triple));
@@ -286,6 +289,7 @@ void importTestFiles() {
     std::sort(validList, validList + validTotal, Triple::cmp_rel2);
     printf("The total of test triples is %ld.\n", testTotal);
     printf("The total of valid triples is %ld.\n", validTotal);
+    printf("The total of train triples is %ld.\n", trainTotal);
 
     testLef = (INT *) calloc(relationTotal, sizeof(INT));
     testRig = (INT *) calloc(relationTotal, sizeof(INT));

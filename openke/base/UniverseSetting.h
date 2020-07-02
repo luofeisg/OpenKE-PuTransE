@@ -2,6 +2,7 @@
 #define UNIVERSESETTING_H
 
 #include "Triple.h"
+#include "Utilities.h"
 #include "Reader.h"
 #include <cstdlib>
 #include <set>
@@ -132,27 +133,6 @@ void swapHelpers() {
 ======================= Reset ===================
 */
 
-void resetTripleHelper(Triple *&helper) {
-    if (helper != NULL) {
-        free(helper);
-        helper = NULL;
-    }
-}
-
-void resetIntHelper(INT *&helper) {
-    if (helper != NULL) {
-        free(helper);
-        helper = NULL;
-    }
-}
-
-void resetRealHelper(REAL *&helper) {
-    if (helper != NULL) {
-        free(helper);
-        helper = NULL;
-    }
-}
-
 extern "C"
 void resetUniverse() {
     if (swap)
@@ -271,11 +251,7 @@ void verifyIndexEntry(INT entity, char const *indexArrayName, INT tripleArrayEnt
     }
 }
 
-bool isEqual(const char *string1, const char *string2) {
-    return strcmp(string1, string2) == 0;
-}
-
-void checkHelper(INT entOrRel, INT *&indexArray, char const *indexArrayName) {
+void checkUnivHelper(INT entOrRel, INT *&indexArray, char const *indexArrayName) {
     if ((indexArray[entOrRel] >= 0) && (indexArray[entOrRel] < trainTotalUniverse)) {
         // Check index of first occurring entity or relation in indexing Arrays
         if (((isEqual(indexArrayName, "lefHead") || isEqual(indexArrayName, "lefRel")) &&
@@ -316,12 +292,12 @@ void checkHelper(INT entOrRel, INT *&indexArray, char const *indexArrayName) {
 void checkUniverseHelpers() {
     printf("Verify index entries in Helpers.\n");
     for (INT i = 0; i < entityTotalUniverse; i++) {
-        checkHelper(i, lefHeadUniverse, "lefHead");
-        checkHelper(i, rigHeadUniverse, "rigHead");
-        checkHelper(i, lefTailUniverse, "lefTail");
-        checkHelper(i, rigTailUniverse, "rigTail");
-        checkHelper(i, lefRelUniverse, "lefRel");
-        checkHelper(i, rigRelUniverse, "rigRel");
+        checkUnivHelper(i, lefHeadUniverse, "lefHead");
+        checkUnivHelper(i, rigHeadUniverse, "rigHead");
+        checkUnivHelper(i, lefTailUniverse, "lefTail");
+        checkUnivHelper(i, rigTailUniverse, "rigTail");
+        checkUnivHelper(i, lefRelUniverse, "lefRel");
+        checkUnivHelper(i, rigRelUniverse, "rigRel");
 
         //check entity frequencies
         int entityFreq = 0;
@@ -338,8 +314,8 @@ void checkUniverseHelpers() {
     }
 
     for (INT i = 0; i < relationTotalUniverse; i++) {
-        checkHelper(i, lefRel2Universe, "lefRel2");
-        checkHelper(i, rigRel2Universe, "rigRel2");
+        checkUnivHelper(i, lefRel2Universe, "lefRel2");
+        checkUnivHelper(i, rigRel2Universe, "rigRel2");
 
         int relationFreq = 0;
         for (INT j = 0; j < trainTotalUniverse; j++) {
@@ -352,43 +328,43 @@ void checkUniverseHelpers() {
     }
 }
 
-void checkSampling(
-    INT *batch_h,
-    INT *batch_t,
-    INT *batch_r,
-    REAL *batch_y,
-    Triple *trainingList,
-    INT trainingTotal,
-    INT batchSize) {
+// void checkUniverseSampling(
+//     INT *batch_h,
+//     INT *batch_t,
+//     INT *batch_r,
+//     REAL *batch_y,
+//     Triple *trainingList,
+//     INT trainingTotal,
+//     INT batchSize) {
 
-    INT h, r, t;
-    INT y;
-    bool found;
+//     INT h, r, t;
+//     INT y;
+//     bool found;
 
-    for(INT i=0;i<batchSize;i++){
-        h = entity_remapping[batch_h[i]];
-        r = relation_remapping[batch_r[i]];
-        t = entity_remapping[batch_t[i]];
-        y = batch_y[i];
+//     for(INT i=0;i<batchSize;i++){
+//         h = entity_remapping[batch_h[i]];
+//         r = relation_remapping[batch_r[i]];
+//         t = entity_remapping[batch_t[i]];
+//         y = batch_y[i];
 
-        found = false;
+//         found = false;
         
-        for(INT j=0;j<trainingTotal;j++){
-            if(trainingList[j].h == h && trainingList[j].r == r && trainingList[j].t == t){
-                found = true;
-                break;
-            }
-        }
+//         for(INT j=0;j<trainingTotal;j++){
+//             if(trainingList[j].h == h && trainingList[j].r == r && trainingList[j].t == t){
+//                 found = true;
+//                 break;
+//             }
+//         }
 
-        if(!found && y == 1){
-            printf("Triple (%ld, %ld, %ld) not found in Universe.\n", h, r, t);
-            exit(EXIT_FAILURE);
-        }else if(found && y == -1){
-            printf("Negative triple (%ld, %ld, %ld) has been found in Universe.\n", h, r, t);
-            exit(EXIT_FAILURE);
-        }
-    }
-    printf("Batch is valid.\n");
-}
+//         if(!found && y == 1){
+//             printf("Triple (%ld, %ld, %ld) not found in Universe.\n", h, r, t);
+//             exit(EXIT_FAILURE);
+//         }else if(found && y == -1){
+//             printf("Negative triple (%ld, %ld, %ld) has been found in Universe.\n", h, r, t);
+//             exit(EXIT_FAILURE);
+//         }
+//     }
+//     printf("Batch is valid.\n");
+// }
 
 #endif

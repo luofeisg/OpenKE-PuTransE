@@ -3,6 +3,7 @@
 #include "Setting.h"
 #include "Reader.h"
 #include "Corrupt.h"
+#include "Incremental.h"
 
 /*=====================================================================================
 link prediction
@@ -21,6 +22,7 @@ REAL hit1TC, hit3TC, hit10TC, mrTC, mrrTC;
 
 extern "C"
 void initTest() {
+    printf("Initialize test");
     lastHead = 0;
     lastTail = 0;
     lastRel = 0;
@@ -32,22 +34,100 @@ void initTest() {
     l3_filter_tot_constrain = 0, l3_tot_constrain = 0, r3_tot_constrain = 0, r3_filter_tot_constrain = 0, l_filter_tot_constrain = 0, r_filter_tot_constrain = 0, r_filter_rank_constrain = 0, r_rank_constrain = 0, r_filter_reci_rank_constrain = 0, r_reci_rank_constrain = 0;
 }
 
+// TODO test
 extern "C"
 void getHeadBatch(INT *ph, INT *pt, INT *pr) {
-    for (INT i = 0; i < entityTotal; i++) {
-        ph[i] = i;
-        pt[i] = testList[lastHead].t;
-        pr[i] = testList[lastHead].r;
+    // Attach test head entity to beginning of batch array
+    INT testH = testList[lastHead].h; 
+    INT testT = testList[lastHead].t;
+    INT testR = testList[lastHead].r;
+    ph[0] = testH;
+    pt[0] = testT;
+    pr[0] = testR;
+    INT offset = -1;
+
+    if(incrementalSetting){
+        // INT i = 1;
+        // for(INT entity : currently_contained_entities) {
+        //     // TODO Test
+        //     if (entity == testH)
+        //         continue;
+        
+        // TODO: Add not only currently contained entities but also entities from test/ valid triples?
+        // But all entities from test/ valid have to be hold in the training data to be represented during the
+        // Training Process
+        //
+        // What if triple is deleted in training data whereby also an entity is deleted, and at the same time 
+        // the entity is existing in a triple in test/ valid data?
+        // How to handle that:
+        // 1) Including scanning of test/ valid data in the checking of an deleted entity
+        //    after a triple deletion takes places. Implies that we load test/ valid data
+        //    before we load a snapshot, so together with the training data (and not seperately and after that).
+        //    This would also mean, that an entity could be completely deleted in the train data, although it
+        //    could be included in the test data. Further it would occur in the test/valid (head-/tail-) batch 
+        //    Would that be sufficient?
+        //
+        // 2) Make sure that after compilation train-/valid-/test data is consistent. So that we reload the
+        //    'currently_contained_entities' array by importing these datasets from the static folder.
+        //    
+
+
+        for(INT i=1; i<num_currently_contained_entities;i++) {
+            if (currently_contained_entities[i+offset] == testH)
+                offset++;
+            
+            INT entity = currently_contained_entities[i + offset];
+
+            ph[i] = entity;
+            pt[i] = testT;
+            pr[i] = testR;
+            i++;
+        } 
+    }else{
+        for (INT i = 1; i < entityTotal; i++) {
+            if (i + offset == testH)
+                offset++;
+
+            ph[i] = i + offset;
+            pt[i] = testT;
+            pr[i] = testR;
+        }
     }
     lastHead++;
 }
 
 extern "C"
 void getTailBatch(INT *ph, INT *pt, INT *pr) {
-    for (INT i = 0; i < entityTotal; i++) {
-        ph[i] = testList[lastTail].h;
-        pt[i] = i;
-        pr[i] = testList[lastTail].r;
+    INT testH = testList[lastTail].h; 
+    INT testT = testList[lastTail].t;
+    INT testR = testList[lastTail].r;
+    INT offset = -1;
+
+    ph[0] = testH;
+    pt[0] = testT;
+    pr[0] = testR;
+    if(incrementalSetting){
+        for(INT i=1; i<num_currently_contained_entities;i++) {
+            // TODO Test
+            if(currently_contained_entities[i + offset] == testT)
+                offset++;
+            
+            INT entity = currently_contained_entities[i + offset]; 
+
+            ph[i] = testH;
+            pt[i] = entity;
+            pr[i] = testR;
+            i++;
+        } 
+    }else{
+        for (INT i = 1; i < entityTotal; i++) {
+            if (i + offset == testT)
+                offset++;
+            
+            ph[i] = testH;
+            pt[i] = i + offset;
+            pr[i] = testR;
+        }
     }
     lastTail++;
 }
@@ -62,37 +142,54 @@ void getRelBatch(INT *ph, INT *pt, INT *pr) {
 }
 
 extern "C"
-void print_con(REAL *con){
-    for (INT j = 0; j < entityTotal; j++) 
-        printf("score %ld = %f.\n", j, con[j]);
-}
-
-extern "C"
 void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
     printf("lastHead: %ld.\n", lastHead);
     INT h = testList[lastHead].h;
     INT t = testList[lastHead].t;
     INT r = testList[lastHead].r;
+    INT filter_offset = -1;
+
     INT lef, rig;
     if (type_constrain) {
         lef = head_lef[r];
         rig = head_rig[r];
     }
-    REAL minimal = con[h];
-    printf("lastHead score: %f.\n", con[h]);
+    REAL minimal = con[0];
+    printf("lastHead score: %f.\n", con[0]);
     INT l_s = 0;
     INT l_filter_s = 0;
     INT l_s_constrain = 0;
     INT l_filter_s_constrain = 0;
 
     if (minimal != INFINITY){
-        for (INT j = 0; j < entityTotal; j++) {
-            if (j != h) {
+        if (incrementalSetting){
+            for (INT j = 1; j < num_currently_contained_entities; j++) {
                 REAL value = con[j];
+                if (currently_contained_entities[j + filter_offset] == h)
+                        filter_offset++;
+                    
                 if (value < minimal) {
                     l_s += 1;
-                    if (not _find(j, t, r))
+                    
+                    if (not _find(currently_contained_entities[j + filter_offset], t, r)){
                         l_filter_s += 1;
+                    }
+                }
+            }
+        } else {
+            for (INT j = 1; j < entityTotal; j++) {
+                REAL value = con[j];
+                if (j + filter_offset == h)
+                        filter_offset++;
+                    
+                if (value < minimal) {
+                    l_s += 1;
+                    
+                    if (not _find(j + filter_offset, t, r)){
+                        l_filter_s += 1;
+                    }else{
+                        printf("Found: %ld, %ld, %ld.\n", j + filter_offset, t, r);
+                    }
                 }
                 if (type_constrain) {
                     while (lef < rig && head_type[lef] < j) lef ++;
@@ -108,12 +205,33 @@ void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
             }
         }
     } else {
-        l_s = entityTotal;
-        l_filter_s = entityTotal;
-        for (INT j = 0; j < entityTotal; j++) 
-            if (_find(j, t, r))
-                l_filter_s -= 1;
-    }
+        if (incrementalSetting){
+            l_s = num_currently_contained_entities;
+            l_filter_s = num_currently_contained_entities;
+
+            for (INT j = 1; j < num_currently_contained_entities; j++) {
+                if (currently_contained_entities[j + filter_offset] == h)
+                    filter_offset++;
+                                
+                if (not _find(currently_contained_entities[j + filter_offset], t, r)){
+                    l_filter_s -= 1;
+                }
+            }
+        } else {
+            l_s = entityTotal;
+            l_filter_s = entityTotal;
+            
+            for (INT j = 1; j < entityTotal; j++){ 
+                if (j + filter_offset == h)
+                        filter_offset++;
+                
+                if (not _find(j + filter_offset, t, r))
+                    l_filter_s -= 1;
+                
+            }
+        }
+    } 
+
     printf("Triple (%ld, %ld, %ld).\n", h, t, r);
     printf("raw Rank: %ld.\n", l_s);
     printf("filter Rank: %ld.\n", l_filter_s);
@@ -150,25 +268,48 @@ void testTail(REAL *con, INT lastTail, bool type_constrain = false) {
     INT h = testList[lastTail].h;
     INT t = testList[lastTail].t;
     INT r = testList[lastTail].r;
+    INT filter_offset = -1;
+
     INT lef, rig;
     if (type_constrain) {
         lef = tail_lef[r];
         rig = tail_rig[r];
     }
-    REAL minimal = con[t];
+    REAL minimal = con[0];
     INT r_s = 0;
     INT r_filter_s = 0;
     INT r_s_constrain = 0;
     INT r_filter_s_constrain = 0;
     
     if (minimal != INFINITY){
-        for (INT j = 0; j < entityTotal; j++) {
-            if (j != t) {
+        if (incrementalSetting){
+            for (INT j = 1; j < num_currently_contained_entities; j++) {
                 REAL value = con[j];
+                if (currently_contained_entities[j + filter_offset] == t)
+                        filter_offset++;
+                    
                 if (value < minimal) {
                     r_s += 1;
-                    if (not _find(h, j, r))
+                    
+                    if (not _find(h, currently_contained_entities[j + filter_offset], r)){
                         r_filter_s += 1;
+                    }
+                }
+            }
+        } else {
+            for (INT j = 1; j < entityTotal; j++) {
+                REAL value = con[j];
+                if (j + filter_offset == t)
+                        filter_offset++;    
+                    
+                if (value < minimal) {
+                    r_s += 1;                
+
+                    if (not _find(h, j + filter_offset, r)){
+                        r_filter_s += 1;
+                    } else {
+                        printf("Found: %ld, %ld, %ld.\n", h, j + filter_offset, r);
+                    }
                 }
                 if (type_constrain) {
                     while (lef < rig && tail_type[lef] < j) lef ++;
@@ -181,15 +322,32 @@ void testTail(REAL *con, INT lastTail, bool type_constrain = false) {
                             }
                     }
                 }
+                
             }
-            
         }
     } else {
-        r_s = entityTotal;
-        r_filter_s = entityTotal;
-        for (INT j = 0; j < entityTotal; j++) 
-            if (_find(h, j, r))
-                r_filter_s -= 1;
+        if (incrementalSetting){
+            r_s = num_currently_contained_entities;
+            r_filter_s = num_currently_contained_entities;    
+
+            for (INT j = 1; j < num_currently_contained_entities; j++) {
+                if (currently_contained_entities[j + filter_offset] == t)
+                    filter_offset++;
+                
+                if (not _find(h, currently_contained_entities[j + filter_offset], r))
+                    r_filter_s -= 1;
+            }
+        } else {
+            r_s = entityTotal;
+            r_filter_s = entityTotal;
+            for (INT j = 1; j < entityTotal; j++){ 
+                if (j + filter_offset == t)
+                        filter_offset++;
+                
+                if (not _find(h, j + filter_offset, r))
+                    r_filter_s -= 1;
+            }
+        }
     }
     printf("Triple (%ld, %ld, %ld).\n", h, t, r);
     printf("raw Rank: %ld.\n", r_s);
@@ -261,6 +419,10 @@ void testRel(REAL *con) {
 
 extern "C"
 void test_link_prediction(bool type_constrain = false) {
+    printf("Test Total is: %ld.\n", testTotal);
+    printf("Triple Total is: %ld.\n", tripleTotal);
+    printf("l_rank is: %f.\n", l_rank);
+    printf("r_rank is: %f.\n", r_rank);
     l_rank /= testTotal;
     r_rank /= testTotal;
     l_reci_rank /= testTotal;

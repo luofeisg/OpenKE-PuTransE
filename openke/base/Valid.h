@@ -12,6 +12,7 @@ REAL r_valid_filter_tot = 0;
 
 extern "C"
 void validInit() {
+    printf("Initialize validation");
     lastValidHead = 0;
     lastValidTail = 0;
     l_valid_filter_tot = 0;
@@ -20,20 +21,72 @@ void validInit() {
 
 extern "C"
 void getValidHeadBatch(INT *ph, INT *pt, INT *pr) {
-    for (INT i = 0; i < entityTotal; i++) {
-      ph[i] = i;
-      pt[i] = validList[lastValidHead].t;
-      pr[i] = validList[lastValidHead].r;
+    INT validH = validList[lastTail].h; 
+    INT validT = validList[lastTail].t;
+    INT validR = validList[lastTail].r;
+    INT offset = -1;
+
+    ph[0] = validH;
+    pt[0] = validT;
+    pr[0] = validR;
+
+    if(incrementalSetting){
+        for(INT i=1; i<num_currently_contained_entities;i++) {
+            if(currently_contained_entities[i + offset] == validH)
+                offset++;
+            
+            INT entity = currently_contained_entities[i + offset]; 
+
+            ph[i] = entity;
+            pt[i] = validT;
+            pr[i] = validR;
+            i++;
+        } 
+    }else{
+        for (INT i = 1; i < entityTotal; i++) {
+            if (i + offset == validH)
+                offset++;
+            
+            ph[i] = i + offset;
+            pt[i] = validT;
+            pr[i] = validR;
+        }
     }
     lastValidHead++;
 }
 
 extern "C"
 void getValidTailBatch(INT *ph, INT *pt, INT *pr) {
-    for (INT i = 0; i < entityTotal; i++) {
-      ph[i] = validList[lastValidTail].h;
-      pt[i] = i;
-      pr[i] = validList[lastValidTail].r;
+    INT validH = validList[lastTail].h; 
+    INT validT = validList[lastTail].t;
+    INT validR = validList[lastTail].r;
+    INT offset = -1;
+
+    ph[0] = validH;
+    pt[0] = validT;
+    pr[0] = validR;
+
+    if(incrementalSetting){
+        for(INT i=1; i<num_currently_contained_entities;i++) {
+            if(currently_contained_entities[i + offset] == validT)
+                offset++;
+            
+            INT entity = currently_contained_entities[i + offset]; 
+
+            ph[i] = validH;
+            pt[i] = entity;
+            pr[i] = validR;
+            i++;
+        } 
+    }else{
+        for (INT i = 1; i < entityTotal; i++) {
+            if (i + offset == validT)
+                offset++;
+            
+            ph[i] = validH;
+            pt[i] = i + offset;
+            pr[i] = validR;
+        }
     }
     lastValidTail++;
 }
@@ -43,25 +96,64 @@ void validHead(REAL *con, INT lastValidHead) {
     INT h = validList[lastValidHead].h;
     INT t = validList[lastValidHead].t;
     INT r = validList[lastValidHead].r;
-    REAL minimal = con[h];
+    INT filter_offset = -1;
+
+    REAL minimal = con[0];
     INT l_filter_s = 0;
-    if (minimal != INFINITY){ 
-        for (INT j = 0; j < entityTotal; j++) {
-            if (j != h) {
+    
+    if (minimal != INFINITY){
+        if (incrementalSetting){
+            for (INT j = 1; j < num_currently_contained_entities; j++) {
                 REAL value = con[j];
-                if (value < minimal && !_find(j, t, r) && value != -1) {
-                l_filter_s += 1;
+                if (currently_contained_entities[j + filter_offset] == h)
+                        filter_offset++;
+                    
+                if (value < minimal) {
+                    if (not _find(currently_contained_entities[j + filter_offset], t, r)){
+                        l_filter_s += 1;
+                    }
+                }
+            }
+        } else {
+            for (INT j = 1; j < entityTotal; j++) {
+                REAL value = con[j];
+                if (j + filter_offset == h)
+                        filter_offset++;
+                    
+                if (value < minimal) {
+                    if (not _find(j + filter_offset, t, r)){
+                        l_filter_s += 1;
+                    }
                 }
             }
         }
     } else {
-        l_filter_s = entityTotal;
-        for (INT j = 0; j < entityTotal; j++) 
-            if (_find(j, t, r))
-                l_filter_s -= 1;
-    }   
+        if (incrementalSetting){
+            l_filter_s = num_currently_contained_entities;
+
+            for (INT j = 1; j < num_currently_contained_entities; j++) {
+                if (currently_contained_entities[j + filter_offset] == h)
+                    filter_offset++;
+                                
+                if (_find(currently_contained_entities[j + filter_offset], t, r)){
+                    l_filter_s -= 1;
+                }
+            }
+        } else {
+            l_filter_s = entityTotal;
+            
+            for (INT j = 1; j < entityTotal; j++){ 
+                if (j + filter_offset == h)
+                        filter_offset++;
+                
+                if (_find(j + filter_offset, t, r))
+                    l_filter_s -= 1;
+                
+            }
+        }
+    }
     if (l_filter_s < 10) l_valid_filter_tot += 1;
-    //  printf("head: l_valid_filter_tot = %f | l_filter_hit10 = %f\n", l_valid_filter_tot, l_valid_filter_tot / lastValidHead);
+
 }
 
 extern "C"
@@ -69,25 +161,60 @@ void validTail(REAL *con, INT lastValidTail) {
     INT h = validList[lastValidTail].h;
     INT t = validList[lastValidTail].t;
     INT r = validList[lastValidTail].r;
-    REAL minimal = con[t];
+    INT filter_offset = -1;
+
+    REAL minimal = con[0];
     INT r_filter_s = 0;
-    if (minimal != INFINITY){ 
-        for (INT j = 0; j < entityTotal; j++) {
-            if (j != t) {
+    
+    if (minimal != INFINITY){
+        if (incrementalSetting){
+            for (INT j = 1; j < num_currently_contained_entities; j++) {
                 REAL value = con[j];
-                if (value < minimal && !_find(h, j, r) && value != -1) {
-                    r_filter_s += 1;
+                if (currently_contained_entities[j + filter_offset] == t)
+                        filter_offset++;
+                    
+                if (value < minimal) {
+                    if (not _find(h, currently_contained_entities[j + filter_offset], r)){
+                        r_filter_s += 1;
+                    }
+                }
+            }
+        } else {
+            for (INT j = 1; j < entityTotal; j++) {
+                REAL value = con[j];
+                if (j + filter_offset == t)
+                        filter_offset++;    
+                    
+                if (value < minimal) {
+                    if (not _find(h, j + filter_offset, r)){
+                        r_filter_s += 1;
+                    }
                 }
             }
         }
     } else {
-        r_filter_s = entityTotal;
-        for (INT j = 0; j < entityTotal; j++) 
-            if (_find(h, j, r))
-                r_filter_s -= 1;
+        if (incrementalSetting){
+            r_filter_s = num_currently_contained_entities;    
+
+            for (INT j = 1; j < num_currently_contained_entities; j++) {
+                if (currently_contained_entities[j + filter_offset] == t)
+                    filter_offset++;
+                
+                if (_find(h, currently_contained_entities[j + filter_offset], r))
+                    r_filter_s -= 1;
+            }
+        } else {
+            r_filter_s = entityTotal;
+            for (INT j = 1; j < entityTotal; j++){ 
+                if (j + filter_offset == t)
+                        filter_offset++;
+                
+                if (_find(h, j + filter_offset, r))
+                    r_filter_s -= 1;
+            }
+        }
     }
     if (r_filter_s < 10) r_valid_filter_tot += 1;
-    //    printf("tail: r_valid_filter_tot = %f | r_filter_hit10 = %f\n", r_valid_filter_tot, r_valid_filter_tot / lastValidTail);
 }
 
 REAL validHit10 = 0;

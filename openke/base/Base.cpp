@@ -2,11 +2,13 @@
 #include "Triple.h"
 #include "Random.h"
 #include "Reader.h"
+#include "Incremental.h"
 #include "Corrupt.h"
 #include "Test.h"
 #include "Valid.h"
 #include "UniverseSetting.h"
 #include "UniverseConstructor.h"
+#include "Checks.h"
 #include <cstdlib>
 #include <set>
 #include <pthread.h>
@@ -72,6 +74,12 @@ INT getRandomSeed();
 */
 
 extern "C"
+void readGlobalNumEntities();
+
+extern "C"
+void readGlobalNumRelations();
+
+extern "C"
 void importTrainFiles();
 
 extern "C"
@@ -100,8 +108,7 @@ INT getRelationTotalUniverse();
 extern "C"
 void getParallelUniverse(
         INT triple_constraint,
-        REAL balance_parameter,
-        INT relation);
+        REAL balance_parameter);
 
 extern "C"
 void getEntityRemapping(INT *ent_remapping);
@@ -117,6 +124,24 @@ void resetUniverse();
 
 extern "C"
 void enableChecks();
+
+/*
+===============Incremental.h===============
+*/
+extern "C"
+void setNumSnapshots(INT num);
+
+extern "C"
+INT getNumSnapshots();
+
+void activateIncrementalSetting();
+
+extern "C"
+void initializeTrainingOperations(int snapshot);
+
+extern "C"
+void evolveTrainList();
+
 
 /*
 ================================================
@@ -165,6 +190,7 @@ void *getBatch(void *con) {
     REAL prob = 500;
     if (val_loss == false) {
         for (INT batch = lef; batch < rig; batch++) {
+            //TODO: include check whether i has index of an deleted triple
             INT i = rand_max(id, trainTotal);
             batch_h[batch] = trainList[i].h;
             batch_t[batch] = trainList[i].t;
@@ -264,8 +290,13 @@ void sampling(
     free(pt);
     free(para);
     
-    if (checkOn)
-        checkSampling(batch_h, batch_t, batch_r, batch_y, trainListUniverse, trainTotal, batchSize);
+    if (checkOn){
+        if(swap){
+            checkSampling(batch_h, batch_t, batch_r, batch_y, trainListUniverse, trainTotal, batchSize);
+        } else {
+            checkSampling(batch_h, batch_t, batch_r, batch_y, trainList, trainTotal, batchSize);
+        }
+    }
 }
 
 extern "C"
@@ -427,75 +458,58 @@ void getEntityRelations(INT* entity_rels, INT entity, bool entity_is_tail) {
 }
 
 int main() {
-    /* Python Input */
-    // inPath = "../../benchmarks/FB15K237/";
+    // /* Python Input */
+    
+    ////// Test static part
+
+    // randReset();
+    // inPath = "../../benchmarks/WN18/";
+    // importTrainFiles();
+    // INT test_entity = NULL;
+    // for (INT i=0;i<entityTotal;i++){
+    //     if (lefHead[i] == 0 && rigHead[i] == -1){
+    //         test_entity = i;
+    //         break;
+    //     }
+    // }    
+    
+    // INT r = trainList[0].r;
+    
+    // corrupt_head(0, test_entity, r);
+    // For corruption in triple classification via corrupt_head corrupt_tail which access trainList
+    // importTrainFiles();
+    // enableChecks();
+
+
+    ////// Test incremental part
+
+    // inPath = "../../benchmarks/Wikidata/datasets/incremental/";
     // setBern(1);
     // setWorkThreads(8);
     // randReset();
     // setRandomSeed();
-    importTrainFiles();
+    
+    // setNumSnapshots(5);
 
-    // for(INT i = 0;i<6;i++){    
-    //     for(INT i = 0;i<relationTotal;i++){
-    //         INT triple_constraint = rand(500, 1000);
-            
-    //         getParallelUniverse(triple_constraint, 0.5, i);
+    // initializeIncrementalSetting();
+    // for(int i = 1; i<=num_snapshots; i++){
+    //     initializeTrainingOperations(i);
+    //     while(!lastOperationFinished){
+    //         evolveTrainList();
+    //         checkHelpers(maxEntity, maxRelation);
+    //         // Simulate training of an universe per increment
+    //         INT triplet_constraint = trainTotal * 0.01;
+    //         // INT triplet_constraint = 1200; --> stuck on 679 for relation 3 (WN)
+    //         getParallelUniverse(triplet_constraint, 0.5);
     //         swapHelpers();
-
-    //         int batch_size = 64;
-    //         int negative_rate = 1;
-    //         int negative_relation_rate = 0;
-    //         int batch_seq_size = batch_size * (1 + negative_rate + negative_relation_rate);
-
-    //         INT *batch_head = (INT*) calloc (batch_seq_size, sizeof(INT));
-    //         INT *batch_rel = (INT*) calloc (batch_seq_size, sizeof(INT));
-    //         INT *batch_tail = (INT*) calloc (batch_seq_size, sizeof(INT));
-    //         REAL *batch_truth = (REAL*) calloc (batch_seq_size, sizeof(REAL));
-
-    //         enableChecks();
-    //         sampling(
-    //             batch_head,
-    //             batch_tail,
-    //             batch_rel,
-    //             batch_truth,
-    //             batch_size,
-    //             negative_rate,
-    //             negative_relation_rate,
-    //             0,
-    //             true,
-    //             false,
-    //             false);
-            
     //         resetUniverse();
     //     }
+        
     // }
-    // INT semantic_focus = rand(0,relationTotal);
-    // getParallelUniverse(1000, 0.5, semantic_focus);
-    // swapHelpers();
+    
+    
 
-    // int batch_size = 64;
-    // int negative_rate = 1;
-    // int negative_relation_rate = 0;
-    // int batch_seq_size = batch_size * (1 + negative_rate + negative_relation_rate);
-
-    // INT *batch_head = (INT*) calloc (batch_seq_size, sizeof(INT));
-    // INT *batch_rel = (INT*) calloc (batch_seq_size, sizeof(INT));
-    // INT *batch_tail = (INT*) calloc (batch_seq_size, sizeof(INT));
-    // REAL *batch_truth = (REAL*) calloc (batch_seq_size, sizeof(REAL));
-
-    // enableChecks();
-    // sampling(
-    //     batch_head,
-    //     batch_tail,
-    //     batch_rel,
-    //     batch_truth,
-    //     batch_size,
-    //     negative_rate,
-    //     negative_relation_rate,
-    //     0,
-    //     true,
-    //     false,
-    //     false);
+    
     
     return 0;
 }
