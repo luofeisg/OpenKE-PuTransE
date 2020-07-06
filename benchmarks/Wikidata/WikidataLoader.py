@@ -825,8 +825,8 @@ def main():
 
     print("Extract triple operations from json revision files.")
     with ProcessPoolExecutor() as executor:
-        for file, _ in zip(json_revision_folder, executor.map(extract_revision_folders_triple_operations, json_revision_folder)):
-            print('DONE processing {} at {}'.format(file.name, datetime.now()))
+        for folder, _ in zip(json_revision_folder, executor.map(extract_revision_folders_triple_operations, json_revision_folder)):
+            print('DONE processing folder {} at {}'.format(folder.name, datetime.now()))
 
     # Compile dataset with triple operations and replace redirected items
     print("Compile triple operations to single file and resolve redirected object items")
