@@ -310,6 +310,10 @@ def get_triple_operations_list(revision_file):
     return triple_operations
 
 
+def extract_revision_folders_triple_operations(rev_folder):
+    for item_revision_file in rev_folder.iterdir():
+        save_triple_operations(item_revision_file)
+
 def save_triple_operations(item_revision_file):
     item_revision_filename = item_revision_file.name
 
@@ -815,14 +819,13 @@ def main():
     print("Save paths of extracted json.bz2 revision files into list")
     revision_files_path = wikidata_path / "revision_files"
     revision_file_pattern = re.compile(r".*_Q.*\.json\.bz2$$")
-    json_revision_files = [rev_file for rev_file in revision_files_path.iterdir() if
-                           revision_file_pattern.match(rev_file.name)]
-    json_revision_files = [rev_file for rev_file in revision_files_path.rglob("*.json.bz2") if
-                           rev_file.is_file() and not rev_file.name.startswith("redirected")]
+    revision_folder_pattern = re.compile(r'[\s\S]*pages-meta-history.*\.bz2$$')
+    json_revision_folder = [rev_folder for rev_folder in revision_files_path.iterdir() if rev_folder.is_dir()
+                                                  and revision_folder_pattern.match(rev_folder.name)]
 
     print("Extract triple operations from json revision files.")
     with ProcessPoolExecutor() as executor:
-        for file, _ in zip(json_revision_files, executor.map(save_triple_operations, json_revision_files)):
+        for file, _ in zip(json_revision_folder, executor.map(extract_revision_folders_triple_operations, json_revision_folder)):
             print('DONE processing {} at {}'.format(file.name, datetime.now()))
 
     # Compile dataset with triple operations and replace redirected items
