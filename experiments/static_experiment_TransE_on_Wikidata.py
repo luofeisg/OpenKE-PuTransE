@@ -96,7 +96,7 @@ def train_TransE(hyper_param_dict, dataset_name, dataset_path):
             print('Save model at epoch %d.' % trained_epochs)
             best_model = deepcopy(transe)
             transe.save_checkpoint(
-                '../checkpoint/transe_{}_snapshot{}_epoch{}.ckpt'.format(dataset_name, snapshot, trained_epochs))
+                '../checkpoint/transe_{}_epoch{}.ckpt'.format(dataset_name, trained_epochs))
             bad_counts = 0
         else:
             print(
