@@ -311,6 +311,7 @@ def get_triple_operations_list(revision_file):
 
 
 def extract_revision_folders_triple_operations(rev_folder):
+    print("Extract triple operations from folder {}.".format(rev_folder.name))
     for item_revision_file in rev_folder.iterdir():
         save_triple_operations(item_revision_file)
 
@@ -318,9 +319,13 @@ def save_triple_operations(item_revision_file):
     item_revision_filename = item_revision_file.name
 
     # Processed marker
-    processed_revision_files = Path.cwd() / item_revision_file.parents[1] / "processed_revision_files"
+    processed_revision_files = Path.cwd() / item_revision_file.parents[1].name / "processed_revision_files"
     processed_revision_files.mkdir(exist_ok=True)
-    processed_rev_marker = processed_revision_files / "{}.processed".format(item_revision_filename)
+
+    processed_revision_files_dump_subfolder = processed_revision_files / item_revision_file.parents[0].name
+    processed_revision_files_dump_subfolder.mkdir(exist_ok=True)
+
+    processed_rev_marker = processed_revision_files_dump_subfolder / "{}.processed".format(item_revision_filename)
 
     if processed_rev_marker.exists():
         print("Revision file {} already processed - Skip file.".format(item_revision_filename))
@@ -746,26 +751,46 @@ def compile_triple_operations():
 
     # Path where triple ops are stored for each item
     triple_ops_path = Path.cwd() / 'triple_operations'
+    triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir() if fld.is_dir() and not fld.name.startswith("processed_")]
     triple_ops_file_list = [file for file in triple_ops_path.rglob("*txt.bz2") if file.is_file()]
     # Load dict which maps source and target items in a redirect. We use it to replace redirected entities
     # with their target items
     redir_dict = get_redirect_dict()
 
-    with bz2.open(output_path / "compiled_triple_operations_raw.txt.bz2", "wt") as output:
-        # out.write('{}\n'.format(timestamp))
-        for triple_operations_log in triple_ops_file_list:
-            with bz2.open(triple_operations_log, mode="rt", encoding="UTF-8") as input:
-                for line in input:
-                    # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
-                    subj, objc, pred, op_type, ts = line.split()
+    for subfolder in triple_ops_dump_subfolders:
+        for triple_operations_log in subfolder.iterdir():
+            processed_triple_ops_folder = triple_ops_path / "processed_triple_operations"
+            processed_triple_ops_folder.mkdir(exist_ok=True)
 
-                    # Resolve redirects in obj
-                    new_objc = redir_dict.get(objc, objc)
-                    if new_objc != objc:
-                        print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
+            processed_triple_ops_dump_subfolder = processed_triple_ops_folder / subfolder.name
+            processed_triple_ops_dump_subfolder.mkdir(exist_ok=True)
 
-                    output_line = "{} {} {} {} {}".format(subj, new_objc, pred, op_type, ts)
-                    output.write(output_line + "\n")
+            processed_triple_ops_marker = processed_triple_ops_dump_subfolder / "{}.processed".format(triple_operations_log.name)
+            if processed_triple_ops_marker.exists():
+                print("Triple operations file {} already processed - Skip file.".format(triple_operations_log.name))
+            else:
+                output_lines = []
+                with bz2.open(triple_operations_log, mode="rt", encoding="UTF-8") as input:
+                    for line in input:
+                        # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
+                        subj, objc, pred, op_type, ts = line.split()
+
+                        # Resolve redirects in obj
+                        new_objc = redir_dict.get(objc, objc)
+                        if new_objc != objc:
+                            print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
+
+                        out_line = "{} {} {} {} {}\n".format(subj, new_objc, pred, op_type, ts)
+                        # output.write(output_line + "\n")
+                        output_lines.append(out_line)
+
+                    # Transmit operations to file
+                    with bz2.open(output_path / "compiled_triple_operations_raw.txt.bz2", mode="at",
+                                  encoding="utf-8") as output:
+                        output.writelines(output_lines)
+
+                    # Create processed marker
+                    processed_triple_ops_marker.touch()
 
 
 def filter_compiled_triple_operations(items_filter_list, predicates_filter_list):
@@ -818,7 +843,7 @@ def main():
     # Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
     revision_files_path = wikidata_path / "revision_files"
-    revision_file_pattern = re.compile(r".*_Q.*\.json\.bz2$$")
+    # revision_file_pattern = re.compile(r".*_Q.*\.json\.bz2$$")
     revision_folder_pattern = re.compile(r'[\s\S]*pages-meta-history.*\.bz2$$')
     json_revision_folder = [rev_folder for rev_folder in revision_files_path.iterdir() if rev_folder.is_dir()
                                                   and revision_folder_pattern.match(rev_folder.name)]
