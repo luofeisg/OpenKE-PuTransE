@@ -18,6 +18,7 @@ class Trainer(object):
 	def __init__(self, 
 				 model = None,
 				 data_loader = None,
+				 valid_dataloader = None,
 				 train_times = 1000,
 				 alpha = 0.5,
 				 use_gpu = True,
@@ -95,7 +96,7 @@ class Trainer(object):
 				# print("--------------------\n")
 				loss = self.train_one_step(data)
 				res += loss
-			training_range.set_description("Epoch %d | loss: %f" % (epoch, loss/self.data_loader.nbatches))
+			training_range.set_description("Epoch %d | loss: %f" % (epoch, loss))
 			
 			if self.save_steps and self.checkpoint_dir and (epoch + 1) % self.save_steps == 0:
 				print("Epoch %d has finished, saving..." % (epoch))

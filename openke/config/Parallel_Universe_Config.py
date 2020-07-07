@@ -4,7 +4,6 @@ import ctypes
 from random import randrange, uniform, seed
 import numpy as np
 from ..module.model.Model import Model
-from ..module.model.TransE import TransE
 from .Trainer import Trainer
 from .Tester import Tester
 from ..data import TestDataLoader
@@ -12,36 +11,6 @@ from ..module.strategy import NegativeSampling
 from ..module.loss import MarginLoss
 from collections import defaultdict
 from tqdm import tqdm
-from copy import deepcopy
-import sys
-
-
-def return_default_value_scores(len_list):
-    def get_list():
-        return [float("inf") for i in range(len_list)]
-
-    return get_list
-
-
-def get_size(obj, seen=None):
-    """Recursively finds size of objects"""
-    size = sys.getsizeof(obj)
-    if seen is None:
-        seen = set()
-    obj_id = id(obj)
-    if obj_id in seen:
-        return 0
-    # Important mark as seen *before* entering recursion to gracefully handle
-    # self-referential objects
-    seen.add(obj_id)
-    if isinstance(obj, dict):
-        size += sum([get_size(v, seen) for v in obj.values()])
-        size += sum([get_size(k, seen) for k in obj.keys()])
-    elif hasattr(obj, '__dict__'):
-        size += get_size(obj.__dict__, seen)
-    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
-        size += sum([get_size(i, seen) for i in obj])
-    return size
 
 
 def get_string_key(entity, relation):
@@ -65,12 +34,14 @@ def to_tensor(x, use_gpu):
 
 class Parallel_Universe_Config(Tester):
     def __init__(self,
-                 train_dataloader=None, training_identifier='', test_dataloader=None, initial_num_universes=5000,
+                 train_dataloader=None, training_identifier='', valid_dataloader=None, test_dataloader=None,
+                 initial_num_universes=5000,
                  min_margin=1, max_margin=4, min_lr=0.01, max_lr=0.1, min_num_epochs=50, max_num_epochs=200,
-                 const_num_epochs=None, min_triple_constraint=500, max_triple_constraint=2000, min_balance=0.25, max_balance=0.5,
-                 embedding_method='TransE', embedding_model=None, embedding_model_param=None,
+                 const_num_epochs=None, min_triple_constraint=500, max_triple_constraint=2000, min_balance=0.25,
+                 max_balance=0.5, embedding_model=None, embedding_model_param=None,
                  missing_embedding_handling='last_rank',
-                 save_steps=5, checkpoint_dir='./checkpoint/', valid_steps=5):
+                 save_steps=5, checkpoint_dir='./checkpoint/', valid_steps=5, training_setting="static",
+                 incremental_strategy="normal"):
         super(Parallel_Universe_Config, self).__init__(data_loader=test_dataloader, use_gpu=torch.cuda.is_available())
 
         """ Train data + variables"""
@@ -122,7 +93,8 @@ class Parallel_Universe_Config(Tester):
         self.lib.validTail.argtypes = [ctypes.c_void_p, ctypes.c_int64]
         self.lib.getValidHit10.restype = ctypes.c_float
 
-        self.valid_dataloader = TestDataLoader(train_dataloader.in_path, "link", mode='valid')
+        self.valid_dataloader = valid_dataloader if valid_dataloader else TestDataLoader(train_dataloader.in_path,
+                                                                                         "link", mode='valid')
 
         self.valid_steps = valid_steps
         self.early_stopping_patience = 10
@@ -132,11 +104,16 @@ class Parallel_Universe_Config(Tester):
         """Global Energy Estimation data structures"""
         self.current_tested_universes = 0
         self.current_validated_universes = 0
-        self.evaluation_head2tail_triple_score_dict = {}  # dict(return_default_value_scores(self.ent_tot))
-        self.evaluation_tail2head_triple_score_dict = {}  # defaultdict(return_default_value_scores(self.ent_tot))
+        self.evaluation_head2tail_triple_score_dict = {}
+        self.evaluation_tail2head_triple_score_dict = {}
         self.evaluation_head2rel_tuple_score_dict = {}
         self.evaluation_tail2rel_tuple_score_dict = {}
         self.default_scores = [float("inf") for i in range(self.ent_tot)]
+
+        self.training_setting = training_setting  # ["incremental" | "static"]
+        self.incremental_strategy  = incremental_strategy  # ["normal" | "deprecate"]
+        if self.training_setting=="incremental" and self.incremental_strategy == "deprecate":
+            self.deprecated_embeddingspaces = set()
 
     def get_default_value_list(self):
         return [float("inf") for i in range(self.ent_tot)]
@@ -158,7 +135,7 @@ class Parallel_Universe_Config(Tester):
 
         return NegativeSampling(
             model=embedding_method,
-            loss=MarginLoss(margin = margin),
+            loss=MarginLoss(margin=margin),
             batch_size=self.train_dataloader.batch_size
         )
 
@@ -190,12 +167,14 @@ class Parallel_Universe_Config(Tester):
         # Create train dataset for universe and process mapping of contained global entities and relations
         triple_constraint = randrange(self.min_triple_constraint, self.max_triple_constraint)
         balance_param = round(uniform(self.min_balance, self.max_balance), 2)
-        relation_in_focus = randrange(0, self.train_dataloader.relTotal - 1)
+
+        # Outsourced sampling of relation to C++ getParallelUniverse in file
+        # UniverseConstructor.h (l.291 - l.299)
+        # relation_in_focus = randrange(0, self.train_dataloader.relTotal - 1)
 
         print('universe information-------------------')
         print('--- num of training triples: %d' % triple_constraint)
-        print('--- semantic focus is relation: %d' % relation_in_focus)
-        self.train_dataloader.compile_universe_dataset(triple_constraint, balance_param, relation_in_focus)
+        self.train_dataloader.compile_universe_dataset(triple_constraint, balance_param)
         self.process_universe_mappings()
         print('--- num of universe entities: %d' % self.train_dataloader.lib.getEntityTotalUniverse())
         print('--- num of universe relations: %d' % self.train_dataloader.lib.getRelationTotalUniverse())
@@ -239,6 +218,13 @@ class Parallel_Universe_Config(Tester):
 
         self.trained_embedding_spaces[self.next_universe_id] = embedding_space
 
+    def save_model(self):
+        self.save_parameters(
+            os.path.join(
+                '{}Pu{}_learned_spaces-{}_{}.ckpt'.format(self.checkpoint_dir, self.embedding_model.__name__,
+                                                          self.next_universe_id,
+                                                          self.training_identifier)))
+
     def train_parallel_universes(self, num_of_embedding_spaces):
         for universe_id in range(num_of_embedding_spaces):
             self.set_random_seed(self.initial_random_seed + self.next_universe_id)
@@ -254,6 +240,8 @@ class Parallel_Universe_Config(Tester):
                 if hit10 > self.best_hit10:
                     self.best_hit10 = hit10
                     print("Best model | hit@10 of valid set is %f" % self.best_hit10)
+                    print('Save model at universe %d.' % self.next_universe_id)
+                    self.save_model()
                     self.bad_counts = 0
                 else:
                     print(
@@ -266,11 +254,8 @@ class Parallel_Universe_Config(Tester):
                     break
 
             if self.save_steps and self.checkpoint_dir and (universe_id + 1) % self.save_steps == 0:
-                print('Learned %d universes.' % self.next_universe_id)
-                self.save_parameters(
-                    os.path.join('{}Pu{}_learned_spaces-{}_{}.ckpt'.format(self.checkpoint_dir, self.embedding_model.__name__,
-                                                                           self.next_universe_id,
-                                                                           self.training_identifier)))
+                print('Save model at universe %d.' % self.next_universe_id)
+                self.save_model()
 
     def gather_embedding_spaces(self, entity_1, rel, entity_2=None):
         entity_occurences = self.entity_universes[entity_1]
@@ -389,8 +374,8 @@ class Parallel_Universe_Config(Tester):
         local_relation_id = self.relation_id_mappings[universe_id][eval_rel_id]
 
         local_tuple_score = self.calc_tuple_score(local_entity_id, local_relation_id, mode, embedding_space)
-        if local_tuple_score < self.score_dict.get(dict_key, float_default()):
-            self.score_dict[dict_key] = local_tuple_score
+        if local_tuple_score < score_dict.get(dict_key, float_default()):
+            score_dict[dict_key] = local_tuple_score
 
     def obtain_embedding_space_score(self, data, universe_id):
         batch_h = data['batch_h']
@@ -426,12 +411,37 @@ class Parallel_Universe_Config(Tester):
     def eval_universes(self, eval_mode):
         eval_dataloader = self.data_loader if eval_mode == 'test' else self.valid_dataloader
         evaluation_range = tqdm(eval_dataloader)
+
         current_evaluated_universes = self.current_tested_universes if eval_mode == 'test' else self.current_validated_universes
+
+        eval_embeddingspaces = None
+        if self.training_setting == "incremental":
+            # Reset triple and tuple scores because train and valid data changes along snapshots
+            self.evaluation_head2tail_triple_score_dict.clear()
+            self.evaluation_tail2head_triple_score_dict.clear()
+            self.evaluation_head2rel_tuple_score_dict.clear()
+            self.evaluation_tail2rel_tuple_score_dict.clear()
+
+            eval_embeddingspaces = range(0, self.next_universe_id)
+
+            # If strategy is "deprecate", deprecate embedding spaces in which deleted triples occur by restricting
+            # evaluation range
+            if self.incremental_strategy == "deprecate":
+                self.determine_deprecated_embedding_spaces()
+                eval_embeddingspaces = [embedding_space for embedding_space in range(0, self.next_universe_id)
+                                        if embedding_space not in self.deprecated_embeddingspaces]
+
+
+        elif self.training_setting == "static":
+            eval_embeddingspaces = range(current_evaluated_universes, self.next_universe_id)
+
+
         for index, [data_head, data_tail] in enumerate(evaluation_range):
             head = data_tail['batch_h'][0]
             rel = data_head['batch_r'][0]
             tail = data_head['batch_t'][0]
-            for universe_id in range(current_evaluated_universes, self.next_universe_id):
+
+            for universe_id in eval_embeddingspaces:
                 if (universe_id in self.entity_universes[head]) and (universe_id in self.relation_universes[rel]):
                     self.obtain_embedding_space_score(data_tail, universe_id)
 
@@ -459,7 +469,7 @@ class Parallel_Universe_Config(Tester):
         elif mode == 'tail_batch':
             eval_entity_id = batch_h[0]
             evaluation_entities = batch_t
-            num_of_evaluation_entitites = len(batch_t)
+            num_of_evaluation_entitites = len(batch_t)  # For incremental Setting num of currently contained entities
             score_dict = self.evaluation_head2tail_triple_score_dict
 
         batch_scores = np.zeros(shape=num_of_evaluation_entitites, dtype=np.float32)
@@ -480,6 +490,7 @@ class Parallel_Universe_Config(Tester):
             if missing_value_replacement != float_default():
                 batch_scores[batch_scores == float_default()] = missing_value_replacement
 
+        # TODO batch_scores (length of evaluation batches which is length of currently contained entities) and
         return batch_scores
 
     def global_energy_estimation2(self, data):
@@ -568,6 +579,11 @@ class Parallel_Universe_Config(Tester):
         print('Hits@3: {}'.format(hit3))
         print('Hits@1: {}'.format(hit1))
 
+    def run_triple_classification(self, threshlod=None):
+        self.eval_universes(eval_mode='test')
+        acc, _ = super().run_triple_classification(threshlod)
+        print("Accuracy is: {}".format(acc))
+
     # def forward(self, data: dict):
     #     batch_h = data['batch_h']
     #     batch_t = data['batch_t']
@@ -588,6 +604,13 @@ class Parallel_Universe_Config(Tester):
     # def predict(self, data: dict):
     #     score = self.forward(data)
     #     return score
+
+    def determine_deprecated_embedding_spaces(self):
+        self.deprecated_embeddingspaces.clear()
+        for triple in self.train_dataloader.deleted_triple_set():
+            head, tail, rel = triple
+            embedding_space_ids_set = self.gather_embedding_spaces(head, rel, tail)
+            self.deprecated_embeddingspaces.update(embedding_space_ids_set)
 
     def extend_parallel_universe(self, ParallelUniverse_inst):
         # shift indexes of trained embedding spaces in parameter instance to add them to this instance
@@ -671,11 +694,11 @@ class Parallel_Universe_Config(Tester):
         if 'min_balance' in state_dict:
             self.min_balance = state_dict['min_balance']
             self.max_balance = state_dict['max_balance']
-        if 'num_dim' in state_dict:
-            self.num_dim = state_dict['num_dim']
-            self.norm = state_dict['p_norm']
-        if 'embedding_method' in state_dict:
-            self.embedding_method = state_dict['embedding_method']
+        # if 'num_dim' in state_dict:
+        #     self.num_dim = state_dict['num_dim']
+        #     self.norm = state_dict['p_norm']
+        # if 'embedding_method' in state_dict:
+        #     self.embedding_method = state_dict['embedding_method']
         elif 'embedding_model' in state_dict:
             self.embedding_model = state_dict['embedding_model']
             self.embedding_model_param = state_dict['embedding_model_param']
