@@ -26,7 +26,7 @@ class TrainDataSampler(object):
 
 class TrainDataLoader(object):
     def __init__(self, in_path="./", batch_size=None, nbatches=None, threads=8, sampling_mode="normal", bern_flag=0,
-                 filter_flag=1, neg_ent=1, neg_rel=0, initial_random_seed=2):
+                 filter_flag=1, neg_ent=1, neg_rel=0, random_seed=2, incremental_setting=False):
         base_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../release/Base.so"))
         self.lib = ctypes.cdll.LoadLibrary(base_file)
         """argtypes"""
@@ -47,8 +47,7 @@ class TrainDataLoader(object):
 
         self.lib.getParallelUniverse.argtypes = [
             ctypes.c_int64,
-            ctypes.c_float,
-            ctypes.c_int64
+            ctypes.c_float
         ]
 
         self.lib.getEntityRemapping.argtypes = [
@@ -113,25 +112,29 @@ class TrainDataLoader(object):
         self.negative_rel = neg_rel
         self.sampling_mode = sampling_mode
         self.cross_sampling_flag = 0
-        self.initial_random_seed = initial_random_seed
+        self.random_seed = random_seed
+        self.incremental_setting = incremental_setting
         self.read()
 
     def read(self):
         self.lib.setInPath(ctypes.create_string_buffer(self.in_path.encode(), len(self.in_path) * 2))
         self.lib.setBern(self.bern)
         self.lib.setWorkThreads(self.work_threads)
-        self.lib.setRandomSeed(self.initial_random_seed)
+        self.lib.setRandomSeed(self.random_seed)
         self.lib.randReset()
-        self.lib.importTrainFiles()
-        self.relTotal = self.lib.getRelationTotal()
-        self.entTotal = self.lib.getEntityTotal()
-        self.tripleTotal = self.lib.getTrainTotal()
 
-        if self.batch_size == None:
-            self.batch_size = self.tripleTotal // self.nbatches
-        if self.nbatches == None:
-            self.nbatches = self.tripleTotal // self.batch_size
-        self.update_batch_arrays()
+        if not self.incremental_setting:
+            self.lib.importTrainFiles()
+            self.relTotal = self.lib.getRelationTotal()
+            self.entTotal = self.lib.getEntityTotal()
+            self.tripleTotal = self.lib.getTrainTotal()
+
+
+            if self.batch_size == None:
+                self.batch_size = self.tripleTotal // self.nbatches
+            if self.nbatches == None:
+                self.nbatches = self.tripleTotal // self.batch_size
+            self.update_batch_arrays()
 
     def update_batch_arrays(self):
         self.batch_seq_size = self.batch_size * (1 + self.negative_ent + self.negative_rel)
@@ -168,8 +171,8 @@ class TrainDataLoader(object):
         self.lib.getRelationRemapping(relation_remapping_addr)
         return entity_remapping, relation_remapping
 
-    def compile_universe_dataset(self, triple_constraint, balance_param, relation_in_focus):
-        self.lib.getParallelUniverse(triple_constraint, balance_param, relation_in_focus)
+    def compile_universe_dataset(self, triple_constraint, balance_param):
+        self.lib.getParallelUniverse(triple_constraint, balance_param)
         self.set_nbatches(self.lib.getTrainTotalUniverse(), self.nbatches)
 
     def sampling(self):
