@@ -280,9 +280,11 @@ def get_triple_operations_list(revision_file):
                                                                                                 revision_file_name))
                 print(
                     "If sth goes wrong here, we have to sort the revision files with respect to the ts in ascending order")
-                buggy_revision_files_folder = Path.cwd() / revision_file.parents[0] / "buggy_revision_files"
+                buggy_revision_files_folder = Path.cwd() / revision_file.parents[1] / "buggy_revision_files"
                 buggy_revision_files_folder.mkdir(exist_ok=True)
-                buggy_revision_file_marker =  buggy_revision_files_folder / "{}.buggy".format(revision_file_name)
+                buggy_revision_files_dump_subfolder = buggy_revision_files_folder / revision_file.parents[0].name
+                buggy_revision_files_dump_subfolder.mkdir(exist_ok=True)
+                buggy_revision_file_marker =  buggy_revision_files_dump_subfolder / "{}.buggy".format(revision_file_name)
                 buggy_revision_file_marker.touch()
 
             # Process claims into set of tuples
@@ -311,8 +313,9 @@ def get_triple_operations_list(revision_file):
 
 
 def extract_revision_folders_triple_operations(rev_folder):
-    print("Extract triple operations from folder {}.".format(rev_folder.name))
-    for item_revision_file in rev_folder.iterdir():
+    print("Extract triple operations from folder {} at {}.".format(rev_folder.name, datetime.now().strftime("%H:%M:%S")))
+    item_revision_file_list = [file for file in rev_folder.iterdir() if file.is_file() and not file.name.startswith("redirected_")]
+    for item_revision_file in item_revision_file_list:
         save_triple_operations(item_revision_file)
 
 def save_triple_operations(item_revision_file):
@@ -758,7 +761,8 @@ def compile_triple_operations():
     redir_dict = get_redirect_dict()
 
     for subfolder in triple_ops_dump_subfolders:
-        for triple_operations_log in subfolder.iterdir():
+        subfolder_triple_ops = [file for file in subfolder.iterdir() if file.is_file() and file.name.startswith("Q")]
+        for triple_operations_log in subfolder_triple_ops:
             processed_triple_ops_folder = triple_ops_path / "processed_triple_operations"
             processed_triple_ops_folder.mkdir(exist_ok=True)
 
