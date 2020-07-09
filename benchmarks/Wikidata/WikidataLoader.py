@@ -181,26 +181,6 @@ def download_wikidata_history_dumps(wikidata_dump_date):
 
 
 #################################### Extract and save xml dump information ####################################
-
-def create_revision_file(item_id, revision_id, timestamp, claims):
-    # if not exists: Create folder to save revisions.
-    # Path structure will be revision_files/[item_id]/[revision_id]
-    revision_files_folder = Path.cwd() / 'revision_files'
-    revision_files_folder.mkdir(exist_ok=True)
-
-    # If not exists: Create folder to store the revisions of an Wikidata Item
-    item_folder = revision_files_folder / str(item_id)
-    item_folder.mkdir(exist_ok=True)
-
-    with bz2.open(item_folder / "{}.txt.bz2".format(revision_id), "wt") as f:
-        f.write('{}\n'.format(timestamp))
-        for rdf_triple in claims:
-            h = rdf_triple[0]
-            r = rdf_triple[1]
-            t = rdf_triple[2]
-            f.write('{}\t{}\t{}\n'.format(h, r, t))
-
-
 def create_revision_dict(item_id, revision_id, timestamp, claim_triple_list):
     revision_dict = {
         "item_id": item_id,
@@ -362,7 +342,7 @@ def save_revision_dict_to_json_file(dump_file_name, item_id, revision_dict, item
     # We only track revisions with empty claim lists if the entity possessed at least one claim before.
     # In this case, all claims of the entity at hand might deleted.
 
-    revision_files_folder = Path.cwd() / 'revision_files'
+    revision_files_folder = Path.cwd() / "revision_files"
     revision_files_folder.mkdir(exist_ok=True)
 
     dump_subfolder = revision_files_folder / '{}'.format(dump_file_name)
