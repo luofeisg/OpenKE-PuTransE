@@ -2,8 +2,13 @@ from openke.config import Parallel_Universe_Config
 from openke.data import TrainDataLoader, TestDataLoader
 from openke.module.model import TransE, TransH
 import torch
+from pathlib import Path
+import sys
 
-# noinspection PyPackageRequirements
+openke_path = Path.cwd().parents[0]
+print(openke_path)
+sys.path.append(str(openke_path))
+
 if __name__ == '__main__':
     # Initialize random seed to make experiments reproducable
     # init_random_seed = randint(0, 2147483647)
@@ -21,11 +26,11 @@ if __name__ == '__main__':
         filter_flag=0,
         neg_ent=1,
         neg_rel=0,
-        initial_random_seed=init_random_seed)
+        random_seed=init_random_seed)
 
     # Initialize TestDataLoader which provides test data
     # test_dataloader = TestDataLoader(train_dataloader.in_path, "link")
-    test_dataloader = TestDataLoader(train_dataloader.in_path, "classification")
+    test_dataloader = TestDataLoader(train_dataloader.in_path, "link")
 
     # Set parameters for model used in the Parallel Universe Config (in this case TransE)
     param_dict = {
@@ -55,14 +60,14 @@ if __name__ == '__main__':
         embedding_model_param=param_dict,
         checkpoint_dir="./checkpoint/",
         valid_steps=100,
-        save_steps=1000)
+        save_steps=1000,
+        training_setting="static",
+        incremental_strategy=None)
 
 
-    PuTransE.train_parallel_universes(10000)
-
-    # PuTransE.load_parameters("PuTransE_learned_spaces-5100.ckpt")
-    # state_dict = torch.load("./checkpoint/PuTransE_learned_spaces-540.ckpt", map_location='cpu')
-    # PuTransE.process_state_dict(state_dict)
+    # PuTransE.train_parallel_universes(10000)
+    state_dict = torch.load("./../checkpoint/PuTransE_learned_spaces-540.ckpt", map_location='cpu')
+    PuTransE.process_state_dict(state_dict)
     # PuTransE.load_state_dict(state_dict)
 
     PuTransE.run_link_prediction()
