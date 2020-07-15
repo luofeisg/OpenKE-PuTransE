@@ -142,6 +142,21 @@ void initializeTrainingOperations(int snapshot);
 extern "C"
 void evolveTrainList();
 
+extern "C"
+void initializeTripleOperations(int snapshot);
+
+extern "C"
+void evolveTripleList();
+
+extern "C"
+INT getNumCurrentlyContainedEntities();
+
+extern "C"
+void loadTestData(int snapshot);
+
+extern "C"
+void loadValidData(int snapshot);
+
 
 /*
 ================================================
@@ -190,7 +205,6 @@ void *getBatch(void *con) {
     REAL prob = 500;
     if (val_loss == false) {
         for (INT batch = lef; batch < rig; batch++) {
-            //TODO: include check whether i has index of an deleted triple
             INT i = rand_max(id, trainTotal);
             batch_h[batch] = trainList[i].h;
             batch_t[batch] = trainList[i].t;
@@ -481,31 +495,50 @@ int main() {
     // enableChecks();
 
 
-    ////// Test incremental part
+    //// Test incremental part
 
-    // inPath = "../../benchmarks/Wikidata/datasets/incremental/";
-    // setBern(1);
-    // setWorkThreads(8);
-    // randReset();
-    // setRandomSeed();
+    inPath = "../../benchmarks/Wikidata/datasets/";
+    setBern(1);
+    setWorkThreads(8);
+    randReset();
+    setRandomSeed();
     
-    // setNumSnapshots(5);
+    setNumSnapshots(5);
 
-    // initializeIncrementalSetting();
-    // for(int i = 1; i<=num_snapshots; i++){
-    //     initializeTrainingOperations(i);
-    //     while(!lastOperationFinished){
-    //         evolveTrainList();
-    //         checkHelpers(maxEntity, maxRelation);
-    //         // Simulate training of an universe per increment
-    //         INT triplet_constraint = trainTotal * 0.01;
-    //         // INT triplet_constraint = 1200; --> stuck on 679 for relation 3 (WN)
-    //         getParallelUniverse(triplet_constraint, 0.5);
-    //         swapHelpers();
-    //         resetUniverse();
-    //     }
+    initializeIncrementalSetting();
+    for(int i = 1; i<=num_snapshots; i++){
+        // Evolve train list
+        initializeTrainingOperations(i);
+        evolveTrainList();
+
+        // Parallel Universe - gather embedding spaces
+        INT triplet_constraint = trainTotal * 0.01;
+        getParallelUniverse(triplet_constraint, 0.5);
+        swapHelpers();
+        resetUniverse();
+
+        // Evolve triple List
+        initializeTripleOperations(i);
+        evolveTripleList();
+
+        // Load evaluation data
+        loadTestData(i);
+        loadValidData(i);
+
+
         
-    // }
+        // while(!lastOperationFinished){
+        //     evolveTrainList();
+        //     checkHelpers(maxEntity, maxRelation);
+        //     // Simulate training of an universe per increment
+        //     INT triplet_constraint = trainTotal * 0.01;
+        //     // INT triplet_constraint = 1200; --> stuck on 679 for relation 3 (WN)
+        //     getParallelUniverse(triplet_constraint, 0.5);
+        //     swapHelpers();
+        //     resetUniverse();
+        // }
+        
+    }
     
     
 

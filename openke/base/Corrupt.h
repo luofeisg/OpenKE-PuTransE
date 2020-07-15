@@ -17,7 +17,7 @@
  // 					positive triples once. 
  //				-- if necessary changes are too complex: Write tc in python?
  //   			-- is it really necessary for tc
- //				--> Answer: If we gather a deleted entity in the corruption process for triple classification, 
+ //				--> Answer: If we gather entity which has been deleted from the KG in the corruption process for triple classification, 
  // 						the corrupted triple is ensured to be false. We expect the model to classify it as
  //							false anyway, so we can rely on the current version of the corrupt_[head | tail]
  //							algorithm

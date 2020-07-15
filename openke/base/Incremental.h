@@ -46,7 +46,7 @@ INT getNumSnapshots() {
 // added to the graph so far, no matter if they have been deleted in the meantime. By doing so, it 
 // is assured that the written code for the incremental setting is consistent with the original
 // version of the OpenKE framework.
-// entityTotal (+1) = num_currently_contained_entities + num_deleted_entities
+// all_entities = num_currently_contained_entities + num_deleted_entities
 
 // static std::set<INT> all_entities;
 // static std::set<INT> currently_contained_entities;
@@ -168,9 +168,9 @@ void readGlobalNumEntities() {
 
     FILE *fin;
     int tmp;
-    fin = fopen((inPath + "/entity2id.txt").c_str(), "r");
-    printf("Folder: %s.\n", (inPath + "/entity2id.txt").c_str());
+    fin = fopen((inPath + "incremental/" + "/entity2id.txt").c_str(), "r");
     entityTotal = getLineNum(fin);
+    printf("Folder: %s.\n", (inPath + "incremental/" + "/entity2id.txt").c_str());
     fclose(fin);
 }
 
@@ -180,15 +180,15 @@ void readGlobalNumRelations() {
 
     FILE *fin;
     int tmp;
-    fin = fopen((inPath + "/relation2id.txt").c_str(), "r");
-    printf("Folder: %s.\n", (inPath + "/relation2id.txt").c_str());
+    fin = fopen((inPath + "incremental/" + "/relation2id.txt").c_str(), "r");
+    printf("Folder: %s.\n", (inPath + "incremental/" + "/relation2id.txt").c_str());
     relationTotal = getLineNum(fin);
     fclose(fin);
 }
 
 extern "C"
 void initializeIncrementalSetting() {
-    printf("Initialize knowledge graph.");
+    printf("Initialize knowledge graph.\n");
     incrementalSetting = true;
 
     FILE *fin;
@@ -198,9 +198,9 @@ void initializeIncrementalSetting() {
     readGlobalNumEntities();
 }
 
-// Used for both training and evaluation triples (tripleList)
 void resetSnapShot() {
     // Called in the beginning of each snapshot
+    // Used for both training and triple operations (tripleList)
     if (KnowledgeGraphOperations != NULL) {
         free(KnowledgeGraphOperations);
         KnowledgeGraphOperations = NULL;
@@ -210,7 +210,71 @@ void resetSnapShot() {
     }
 }
 
-// Read out all triple operations and training operations
+void resetTestData() {
+    // Called in the beginning of each snapshot
+    if (testList != NULL) {
+        free(testList);
+        testList = NULL;
+    }
+}
+
+void resetValidData() {
+    // Called in the beginning of each snapshot
+    if (validList != NULL) {
+        free(validList);
+        validList = NULL;
+    }
+}
+
+extern "C"
+void loadTestData(int snapshot) {
+    resetTestData();
+    printf("Import test data for snapshot: %d.\n", snapshot);
+    
+    std::string snapshot_folder = int_to_string(snapshot);
+    
+    FILE *fin;
+    int tmp;
+
+    fin = fopen((inPath + "incremental/" + snapshot_folder + "/test2id.txt").c_str(), "r");
+    printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/test2id.txt").c_str());
+    
+    testTotal = getLineNum(fin);
+    testList = (Triple *) calloc(testTotal, sizeof(Triple));
+    for (INT i = 0; i < testTotal; i++) {
+        tmp = fscanf(fin, "%ld", &testList[i].h);
+        tmp = fscanf(fin, "%ld", &testList[i].t);
+        tmp = fscanf(fin, "%ld", &testList[i].r);
+    }
+    fclose(fin);
+    
+}
+
+extern "C"
+void loadValidData(int snapshot) {
+    resetValidData();
+    printf("Import test data for snapshot: %d.\n", snapshot);
+    
+    std::string snapshot_folder = int_to_string(snapshot);
+    
+    FILE *fin;
+    int tmp;
+
+    fin = fopen((inPath + "incremental/" + snapshot_folder + "/valid2id.txt").c_str(), "r");
+    printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/valid2id.txt").c_str());
+    
+    validTotal = getLineNum(fin);
+    validList = (Triple *) calloc(validTotal, sizeof(Triple));
+    for (INT i = 0; i < testTotal; i++) {
+        tmp = fscanf(fin, "%ld", &validList[i].h);
+        tmp = fscanf(fin, "%ld", &validList[i].t);
+        tmp = fscanf(fin, "%ld", &validList[i].r);
+    }
+    fclose(fin);
+    
+}
+
+// Read out all training operations
 extern "C"
 void initializeTrainingOperations(int snapshot) {
     resetSnapShot();
@@ -221,8 +285,8 @@ void initializeTrainingOperations(int snapshot) {
     FILE *fin;
     int tmp;
 
-    fin = fopen((inPath + snapshot_folder + "/incremental/train2id.txt").c_str(), "r");
-    printf("Folder: %s.\n", (inPath + snapshot_folder + "/incremental/train2id.txt").c_str());
+    fin = fopen((inPath + "incremental/" + snapshot_folder + "/train-op2id.txt").c_str(), "r");
+    printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/train-op2id.txt").c_str());
     
     totalOperations = getLineNum(fin);
     KnowledgeGraphOperations = (TripleOperation *) calloc(totalOperations, sizeof(TripleOperation));
@@ -236,6 +300,7 @@ void initializeTrainingOperations(int snapshot) {
     
 }
 
+// Read out all triple operations
 extern "C"
 void initializeTripleOperations(int snapshot) {
     resetSnapShot();
@@ -246,8 +311,8 @@ void initializeTripleOperations(int snapshot) {
     FILE *fin;
     int tmp;
 
-    fin = fopen((inPath + snapshot_folder + "/incremental/triple-op2id.txt").c_str(), "r");
-    printf("Folder: %s.\n", (inPath + snapshot_folder + "/incremental/triple-op2id.txt").c_str());
+    fin = fopen((inPath + "incremental/" + snapshot_folder + "/triple-op2id.txt").c_str(), "r");
+    printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/triple-op2id.txt").c_str());
     
     totalOperations = getLineNum(fin);
     KnowledgeGraphOperations = (TripleOperation *) calloc(totalOperations, sizeof(TripleOperation));
@@ -308,6 +373,50 @@ bool checkIfTrainRelationExists(INT rel){
     return relationExists;
 }
 
+bool checkIfEntityIsNew(INT entity){
+    bool entityIsNew = true;
+    for(int i=0; i<num_all_entities; i++){
+        if(all_entities[i] == entity){
+            entityIsNew = false;
+            break;
+        }
+    }
+    return entityIsNew;
+}
+
+bool checkIfTrainEntityIsNew(INT entity){
+    bool entityIsNew = true;
+    for(int i=0; i<num_all_train_entities; i++){
+        if(all_train_entities[i] == entity){
+            entityIsNew = false;
+            break;
+        }
+    }
+    return entityIsNew;
+}
+
+bool checkIfRelationIsNew(INT rel){
+    bool relationIsNew = true;
+    for(int i=0; i<num_all_relations; i++){
+        if(all_relations[i] == rel){
+            relationIsNew = false;
+            break;
+        }
+    }
+    return relationIsNew;
+}
+
+bool checkIfTrainRelationsIsNew(INT rel){
+    bool relationIsNew = true;
+    for(int i=0; i<num_all_train_relations; i++){
+        if(all_train_relations[i] == rel){
+            relationIsNew = false;
+            break;
+        }
+    }
+    return relationIsNew;
+}
+
 bool checkIfEntityDeleted(INT entity){
     // return deleted_entities.find(entity) != deleted_entities.end();
     bool entityDeleted = false;
@@ -336,18 +445,21 @@ void adjustEntitySet(INT ent){
     // add entity to set of all entities which have once added to the KG
     // all_entities.insert(entity);
     // entityTotal = all_entities.size();
-    createArrayEntry(all_entities, num_all_entities, ent);
-    if (ent>maxEntity)
-        maxEntity = ent;
+    
+    if(checkIfEntityIsNew(ent)){
+        createArrayEntry(all_entities, num_all_entities, ent);
+        if (ent>maxEntity)
+            maxEntity = ent;
+    }
 
     // check if added entity existed before
     if(!checkIfEntityExists(ent))
-        // currently_contained_entities.insert(entity);
+        // Add entity ent to currently contained entities
         createArrayEntry(currently_contained_entities, num_currently_contained_entities, ent);
 
     // check if added entity was deleted before
     if(checkIfEntityDeleted(ent))
-        // deleted_entities.erase(entity);
+        // Remove entity ent from array of previously deleted entities
         deleteArrayEntry(deleted_entities, num_deleted_entities, ent);
 }
 
@@ -355,9 +467,11 @@ void adjustTrainEntitySet(INT ent){
     // add entity to set of all entities which have once added to the KG
     // all_entities.insert(entity);
     // entityTotal = all_entities.size();
-    createArrayEntry(all_train_entities, num_all_train_entities, ent);
-    if (ent>maxTrainEntity)
-        maxTrainEntity = ent;
+    if(checkIfTrainEntityIsNew(ent)){
+        createArrayEntry(all_train_entities, num_all_train_entities, ent);
+        if (ent>maxTrainEntity)
+            maxTrainEntity = ent;
+    }
 
     // check if added entity existed before
     if(!checkIfTrainEntityExists(ent))
@@ -384,8 +498,6 @@ bool checkIfRelationDeleted(INT relation){
 }
 
 bool checkIfTrainRelationDeleted(INT relation){
-    // return deleted_relations.find(relation) != deleted_relations.end();
-        // return deleted_entities.find(entity) != deleted_entities.end();
     bool relationDeleted = false;
     for(int i=0; i<num_deleted_train_relations; i++){
         if(deleted_train_relations[i] == relation){
@@ -400,9 +512,11 @@ void adjustRelationSet(INT rel){
     // add relation to set of all relations which have once added to the KG
     // all_relations.insert(relation);
     // relationTotal = all_relations.size();
-    createArrayEntry(all_relations, num_all_relations, rel);
-    if (rel>maxRelation)
-        maxRelation = rel;
+    if(checkIfRelationIsNew(rel)){
+        createArrayEntry(all_relations, num_all_relations, rel);
+        if (rel>maxRelation)
+            maxRelation = rel;
+    }
 
     // check if added relation exists
     if(!checkIfRelationExists(rel))
@@ -419,10 +533,13 @@ void adjustTrainRelationSet(INT rel){
     // add relation to set of all relations which have once added to the KG
     // all_relations.insert(relation);
     // relationTotal = all_relations.size();
-    createArrayEntry(all_train_relations, num_all_train_relations, rel);
-    if (rel>maxTrainRelation)
-        maxTrainRelation = rel;
+    if(checkIfTrainRelationsIsNew(rel)){
+        createArrayEntry(all_train_relations, num_all_train_relations, rel);
+        if (rel>maxTrainRelation)
+            maxTrainRelation = rel;
 
+    }
+        
     // check if added relation exists
     if(!checkIfTrainRelationExists(rel))
         // currently_contained_relations.insert(relation);
@@ -462,7 +579,7 @@ void insertTrainTriple(Triple trip) {
 
 void entityRemovalCheck(INT ent){
     // If entity ent does not exists after delete operation remove it from currently_contained_entities
-        // and add it do deleted entities
+    // and add it do deleted entities
     bool entityExists = checkIfEntityExists(ent);
     if(!entityExists){
         // currently_contained_entities.erase(ent);
@@ -486,7 +603,7 @@ void trainEntityRemovalCheck(INT ent){
 
 void relationRemovalCheck(INT rel){
     bool relationExists = checkIfRelationExists(rel); 
-    if(relationExists == false){
+    if(!relationExists){
         // currently_contained_relations.erase(relation);
         deleteArrayEntry(currently_contained_relations, num_currently_contained_relations, rel);
         // deleted_relations.insert(relation);
@@ -518,17 +635,17 @@ void deleteTriple(Triple trip) {
         }
     }
     
-    if(!triple_existed){
+    if(triple_existed){
+        tripleTotal--;
+        callocTripleArray(tripleList, tripleTotal);
+
+        entityRemovalCheck(trip.h);
+        entityRemovalCheck(trip.t);
+        relationRemovalCheck(trip.r);
+    }else{
         printf("Triple %ld,%ld,%ld not found in KG.", trip.h, trip.t, trip.r);
         return;
     }
-
-    tripleTotal--;
-    callocTripleArray(tripleList, tripleTotal);
-
-    entityRemovalCheck(trip.h);
-    entityRemovalCheck(trip.t);
-    relationRemovalCheck(trip.r);
 }
 
 void deleteTrainTriple(Triple trip) {
@@ -545,17 +662,17 @@ void deleteTrainTriple(Triple trip) {
         }
     }
     
-    if(!triple_existed){
-        printf("Triple %ld,%ld,%ld not found in KG.", trip.h, trip.t, trip.r);
+    if(triple_existed){
+        trainTotal--;
+        callocTripleArray(trainList, trainTotal);
+
+        trainEntityRemovalCheck(trip.h);
+        trainEntityRemovalCheck(trip.t);
+        TrainRelationRemovalCheck(trip.r);
+    }else{
+        printf("Train Triple %ld,%ld,%ld not found in KG.", trip.h, trip.t, trip.r);
         return;
     }
-
-    trainTotal--;
-    callocTripleArray(trainList, trainTotal);
-
-    entityRemovalCheck(trip.h);
-    entityRemovalCheck(trip.t);
-    relationRemovalCheck(trip.r);
 }
 
 void resetIncrementalHelpers() {
@@ -710,7 +827,7 @@ void evolveTrainList() {
             printf("Reached snapshot.\n");
         }
     }
-
+    
     loadIncrementalHelpers(
         trainList,
         trainHead,
@@ -736,9 +853,8 @@ void evolveTrainList() {
 
 }
 
+extern "C"
 void evolveTripleList() {
-    resetIncrementalHelpers();
-
     INT operation = 0;
     if (numOperationsRate == 0)
         numOperationsRate = totalOperations;
@@ -759,28 +875,10 @@ void evolveTripleList() {
         next_operation_id++;
     }
 
-    // loadIncrementalHelpers(
-    //     tripleList,
-    //     trainHead,
-    //     trainTail,
-    //     trainRel,
-    //     trainRel2,
-    //     freqRel,
-    //     freqEnt,
-    //     tripleTotal,
-    //     entityTotal, // set to num_entities from global entity2id.txt ?
-    //     relationTotal, // set to num_entities from global relation2id.txt ?
-    //     lefHead,
-    //     rigHead,
-    //     lefTail,
-    //     rigTail,
-    //     lefRel,
-    //     rigRel,
-    //     lefRel2,
-    //     rigRel2,
-    //     left_mean,
-    //     right_mean
-    // );
+    std::sort(tripleList, tripleList + tripleTotal, Triple::cmp_head);
+    printf("Currently contained entities: %ld.\n", getNumCurrentlyContainedEntities());
+    printf("Currently deleted entities: %ld.\n", num_deleted_entities);
+    printf("All entities: %ld.\n", num_all_entities);
 }
 
 

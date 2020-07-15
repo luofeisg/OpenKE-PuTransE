@@ -174,20 +174,20 @@ void importTrainFiles() {
     int tmp;
     
     fin = fopen((inPath + "relation2id.txt").c_str(), "r");
-    // relationTotal = getLineNum(fin) - 1;
-    tmp = fscanf(fin, "%ld", &relationTotal);
+    relationTotal = getLineNum(fin);
+    // tmp = fscanf(fin, "%ld", &relationTotal);
     printf("The total of relations is %ld.\n", relationTotal);
     fclose(fin);
 
     fin = fopen((inPath + "entity2id.txt").c_str(), "r");
-    // entityTotal = getLineNum(fin) - 1;
-    tmp = fscanf(fin, "%ld", &entityTotal);
+    entityTotal = getLineNum(fin);
+    // tmp = fscanf(fin, "%ld", &entityTotal);
     printf("The total of entities is %ld.\n", entityTotal);
     fclose(fin);
 
     fin = fopen((inPath + "train2id.txt").c_str(), "r");
-    // trainTotal = getLineNum(fin) - 1;
-    tmp = fscanf(fin, "%ld", &trainTotal);
+    trainTotal = getLineNum(fin);
+    // tmp = fscanf(fin, "%ld", &trainTotal);
     trainList = (Triple *) calloc(trainTotal, sizeof(Triple));
     for (INT i = 0; i < trainTotal; i++) {
         tmp = fscanf(fin, "%ld", &trainList[i].h);
@@ -244,21 +244,25 @@ void importTestFiles() {
     INT tmp;
 
     fin = fopen((inPath + "relation2id.txt").c_str(), "r");
-    tmp = fscanf(fin, "%ld", &relationTotal);
+    // tmp = fscanf(fin, "%ld", &relationTotal);
+    relationTotal = getLineNum(fin);
     fclose(fin);
 
     fin = fopen((inPath + "entity2id.txt").c_str(), "r");
-    tmp = fscanf(fin, "%ld", &entityTotal);
+    // tmp = fscanf(fin, "%ld", &entityTotal);
+    entityTotal = getLineNum(fin);
     fclose(fin);
 
     FILE *f_kb1 = fopen((inPath + "test2id.txt").c_str(), "r");
     FILE *f_kb2 = fopen((inPath + "train2id.txt").c_str(), "r");
     FILE *f_kb3 = fopen((inPath + "valid2id.txt").c_str(), "r");
-    tmp = fscanf(f_kb1, "%ld", &testTotal);
-    tmp = fscanf(f_kb2, "%ld", &trainTotal);
-    tmp = fscanf(f_kb3, "%ld", &validTotal);
+    // tmp = fscanf(f_kb1, "%ld", &testTotal);
+    // tmp = fscanf(f_kb2, "%ld", &trainTotal);
+    // tmp = fscanf(f_kb3, "%ld", &validTotal);
+    testTotal = getLineNum(f_kb1);
+    trainTotal = getLineNum(f_kb2);
+    validTotal = getLineNum(f_kb3);
     tripleTotal = testTotal + trainTotal + validTotal;
-    printf("The total of test triples is %ld.\n", tripleTotal);
     
     testList = (Triple *) calloc(testTotal, sizeof(Triple));
     validList = (Triple *) calloc(validTotal, sizeof(Triple));

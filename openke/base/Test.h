@@ -34,7 +34,6 @@ void initTest() {
     l3_filter_tot_constrain = 0, l3_tot_constrain = 0, r3_tot_constrain = 0, r3_filter_tot_constrain = 0, l_filter_tot_constrain = 0, r_filter_tot_constrain = 0, r_filter_rank_constrain = 0, r_rank_constrain = 0, r_filter_reci_rank_constrain = 0, r_reci_rank_constrain = 0;
 }
 
-// TODO test
 extern "C"
 void getHeadBatch(INT *ph, INT *pt, INT *pr) {
     // Attach test head entity to beginning of batch array
@@ -213,7 +212,7 @@ void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
                 if (currently_contained_entities[j + filter_offset] == h)
                     filter_offset++;
                                 
-                if (not _find(currently_contained_entities[j + filter_offset], t, r)){
+                if (_find(currently_contained_entities[j + filter_offset], t, r)){
                     l_filter_s -= 1;
                 }
             }
@@ -225,12 +224,12 @@ void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
                 if (j + filter_offset == h)
                         filter_offset++;
                 
-                if (not _find(j + filter_offset, t, r))
+                if (_find(j + filter_offset, t, r))
                     l_filter_s -= 1;
                 
             }
         }
-    } 
+    }
 
     printf("Triple (%ld, %ld, %ld).\n", h, t, r);
     printf("raw Rank: %ld.\n", l_s);
@@ -334,7 +333,7 @@ void testTail(REAL *con, INT lastTail, bool type_constrain = false) {
                 if (currently_contained_entities[j + filter_offset] == t)
                     filter_offset++;
                 
-                if (not _find(h, currently_contained_entities[j + filter_offset], r))
+                if (_find(h, currently_contained_entities[j + filter_offset], r))
                     r_filter_s -= 1;
             }
         } else {
@@ -344,7 +343,7 @@ void testTail(REAL *con, INT lastTail, bool type_constrain = false) {
                 if (j + filter_offset == t)
                         filter_offset++;
                 
-                if (not _find(h, j + filter_offset, r))
+                if (_find(h, j + filter_offset, r))
                     r_filter_s -= 1;
             }
         }

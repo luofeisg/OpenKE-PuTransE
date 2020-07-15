@@ -14,7 +14,6 @@
 
 INT gatherTripleFromHead(INT entity, INT &new_head, INT &new_rel, INT &new_tail) {
     INT tmp_index = rand(lefHead[entity], rigHead[entity] + 1);
-    // TODO exclude deleted triples here
     new_head = trainHead[tmp_index].h;
     new_rel = trainHead[tmp_index].r;
     new_tail = trainHead[tmp_index].t;
@@ -23,7 +22,6 @@ INT gatherTripleFromHead(INT entity, INT &new_head, INT &new_rel, INT &new_tail)
 
 INT gatherTripleFromTail(INT entity, INT &new_head, INT &new_rel, INT &new_tail) {
     INT tmp_index = rand(lefTail[entity], rigTail[entity] + 1);
-    // TODO exclude deleted triples here
     new_head = trainTail[tmp_index].h;
     new_rel = trainTail[tmp_index].r;
     new_tail = trainTail[tmp_index].t;
@@ -45,7 +43,7 @@ std::set<INT> get_entity_subset(std::set<INT> entity_set, INT semantic_threshold
 }
 
 std::set<INT> gatherRelationEntities(INT relation) {
-    // relation = 3;
+    printf("Gather entities which occur with relation %ld.\n", relation);
     INT left_index = lefRel2[relation];
     INT right_index = rigRel2[relation];
     std::set<INT> entity_set;
@@ -82,7 +80,7 @@ void BidirectionalRandomWalk(std::set<INT> entity_set) {
 
     REAL prob = 500;
     while (universe_index < trainTotalUniverse) {
-        printf("Gathered triples: %ld.\n", universe_index);
+        // printf("Gathered triples: %ld.\n", universe_index);
         for (std::set<INT>::iterator it = entity_set.begin();
              it != entity_set.end() && universe_index < trainTotalUniverse;) {
             current_entity = *it;
@@ -123,7 +121,7 @@ void BidirectionalRandomWalk(std::set<INT> entity_set) {
                     iter_duplicate_gathering_tolerance = 5;
                     it++;
                 }
-                printf("Continue \n");
+                // printf("Continue \n");
                 continue;
             }
 
@@ -290,7 +288,7 @@ void getParallelUniverse(
     trainTotalUniverse = triple_constraint;
     callocTripleArray(trainListUniverse, trainTotalUniverse);
 
-    INT relation_focus = NULL;
+    INT relation_focus;
     if(incrementalSetting){
         // In case of incremental setting sample relation from currently contained relations in the train set
         INT rand_index = rand(0, num_currently_contained_train_relations);

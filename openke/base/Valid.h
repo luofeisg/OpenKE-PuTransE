@@ -21,9 +21,9 @@ void validInit() {
 
 extern "C"
 void getValidHeadBatch(INT *ph, INT *pt, INT *pr) {
-    INT validH = validList[lastTail].h; 
-    INT validT = validList[lastTail].t;
-    INT validR = validList[lastTail].r;
+    INT validH = validList[lastValidHead].h; 
+    INT validT = validList[lastValidHead].t;
+    INT validR = validList[lastValidHead].r;
     INT offset = -1;
 
     ph[0] = validH;
@@ -40,7 +40,6 @@ void getValidHeadBatch(INT *ph, INT *pt, INT *pr) {
             ph[i] = entity;
             pt[i] = validT;
             pr[i] = validR;
-            i++;
         } 
     }else{
         for (INT i = 1; i < entityTotal; i++) {
@@ -57,9 +56,9 @@ void getValidHeadBatch(INT *ph, INT *pt, INT *pr) {
 
 extern "C"
 void getValidTailBatch(INT *ph, INT *pt, INT *pr) {
-    INT validH = validList[lastTail].h; 
-    INT validT = validList[lastTail].t;
-    INT validR = validList[lastTail].r;
+    INT validH = validList[lastValidTail].h; 
+    INT validT = validList[lastValidTail].t;
+    INT validR = validList[lastValidTail].r;
     INT offset = -1;
 
     ph[0] = validH;
@@ -76,7 +75,6 @@ void getValidTailBatch(INT *ph, INT *pt, INT *pr) {
             ph[i] = validH;
             pt[i] = entity;
             pr[i] = validR;
-            i++;
         } 
     }else{
         for (INT i = 1; i < entityTotal; i++) {
