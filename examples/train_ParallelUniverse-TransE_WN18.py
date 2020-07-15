@@ -1,13 +1,15 @@
-from openke.config import Parallel_Universe_Config
-from openke.data import TrainDataLoader, TestDataLoader
-from openke.module.model import TransE, TransH
-import torch
 from pathlib import Path
 import sys
 
 openke_path = Path.cwd().parents[0]
 print(openke_path)
 sys.path.append(str(openke_path))
+
+from openke.config import Parallel_Universe_Config
+from openke.data import TrainDataLoader, TestDataLoader
+from openke.module.model import TransE, TransH
+import torch
+
 
 if __name__ == '__main__':
     # Initialize random seed to make experiments reproducable
