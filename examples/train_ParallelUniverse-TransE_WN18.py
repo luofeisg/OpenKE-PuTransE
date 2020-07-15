@@ -67,9 +67,5 @@ if __name__ == '__main__':
         incremental_strategy=None)
 
 
-    # PuTransE.train_parallel_universes(10000)
-    state_dict = torch.load("./../checkpoint/PuTransE_learned_spaces-540.ckpt", map_location='cpu')
-    PuTransE.process_state_dict(state_dict)
-    # PuTransE.load_state_dict(state_dict)
-
+    PuTransE.train_parallel_universes(10000)
     PuTransE.run_link_prediction()
