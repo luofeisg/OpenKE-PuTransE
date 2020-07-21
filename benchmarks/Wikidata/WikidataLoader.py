@@ -11,6 +11,7 @@ from html import unescape
 import json
 from qwikidata.entity import WikidataItem
 from datetime import datetime
+import numpy as np
 
 # from nasty_utils import DecompressingTextIOWrapper
 from collections import Counter, defaultdict
@@ -205,12 +206,15 @@ def get_redirect_dict():
     redirects_log_folder = Path.cwd() / 'redirects'
     redir_dict = {}
 
+    print("Load redirects from {} at {}.".format(redirects_log_folder, datetime.now().strftime("%H:%M:%S")))
     for redirect_file_log in redirects_log_folder.iterdir():
         with bz2.open(redirect_file_log, "rt", encoding="UTF-8") as f:
             for line in f:
                 source_item_id, target_item_id = line.split()
                 redir_dict[source_item_id] = target_item_id
 
+    print("Finished loading redirects at {}.".format(datetime.now().strftime("%H:%M:%S")))
+    print("Counted {} redirects.".format(len(redir_dict)))
     return redir_dict
 
 
@@ -735,13 +739,15 @@ def compile_triple_operations():
     # Path where triple ops are stored for each item
     triple_ops_path = Path.cwd() / 'triple_operations'
     triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir() if fld.is_dir() and not fld.name.startswith("processed_")]
-    triple_ops_file_list = [file for file in triple_ops_path.rglob("*txt.bz2") if file.is_file()]
+    # triple_ops_file_list = [file for file in triple_ops_path.rglob("*txt.bz2") if file.is_file()]
     # Load dict which maps source and target items in a redirect. We use it to replace redirected entities
     # with their target items
     redir_dict = get_redirect_dict()
+    print("Found {} folders containing item triple operations.".format(len(triple_ops_dump_subfolders)))
 
     for subfolder in triple_ops_dump_subfolders:
         subfolder_triple_ops = [file for file in subfolder.iterdir() if file.is_file() and file.name.startswith("Q")]
+        ("Get triple operations from {}.".format(subfolder.name))
         for triple_operations_log in subfolder_triple_ops:
             processed_triple_ops_folder = triple_ops_path / "processed_triple_operations"
             processed_triple_ops_folder.mkdir(exist_ok=True)
@@ -761,8 +767,8 @@ def compile_triple_operations():
 
                         # Resolve redirects in obj
                         new_objc = redir_dict.get(objc, objc)
-                        if new_objc != objc:
-                            print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
+                        # if new_objc != objc:
+                            # print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
 
                         out_line = "{} {} {} {} {}\n".format(subj, new_objc, pred, op_type, ts)
                         # output.write(output_line + "\n")
@@ -775,6 +781,7 @@ def compile_triple_operations():
 
                     # Create processed marker
                     processed_triple_ops_marker.touch()
+            ("Finished gathering of triple extraction for folder {}.".format(subfolder.name))
 
 
 def filter_compiled_triple_operations(items_filter_list, predicates_filter_list):
@@ -800,6 +807,34 @@ def read_filter_file(file):
             filter_list.append(int(wikidata_id))
 
     return filter_list
+
+def sort_filtered_triple_operations():
+    print("Load filtered triple operations.")
+    compiled_triples_path = Path.cwd() / "compiled_triple_operations"
+    # filtered_triples_file = compiled_triples_path / "compiled_triple_operations_raw.txt.bz2"
+    filtered_triples_file = compiled_triples_path / "compiled_triple_operations_filtered.txt.bz2"
+
+    triple_operations = []
+    timestamps = []
+    with bz2.open(filtered_triples_file, mode="rt", encoding="UTF-8") as f:
+        for line in f:
+            subj, objc, pred, op_type, ts = line.split()
+            triple_operations.append((int(subj), int(objc), int(pred), op_type))
+            timestamps.append(ts)
+
+    timestamps = np.array(timestamps)
+    timestamps_sorted_indexes = timestamps.argsort().tolist()
+    timestamps_sorted = timestamps[timestamps_sorted_indexes]
+    triple_operations = [triple_operations[i] for i in timestamps_sorted_indexes]
+
+    print("Save sorted list to file.")
+    sorted_triple_ops_file = compiled_triples_path / "compiled_triple_operations_filtered_and_sorted.txt.bz2"
+    with bz2.open(sorted_triple_ops_file, mode="wt", encoding="UTF-8") as f:
+        # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
+        for index, op in enumerate(triple_operations):
+
+            line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], timestamps_sorted[index])
+            f.write(line + "\n")
 
 
 def main():
@@ -846,7 +881,7 @@ def main():
     filtered_entitites = read_filter_file(Path.cwd() / "filters" / "entities_filtered_by_LaCroix_et_al_2020")
     filtered_relations = read_filter_file(Path.cwd() / "filters" / "predicates_filtered_by_LaCroix_et_al_2020")
     filter_compiled_triple_operations(filtered_entitites, filtered_relations)
-
+    sort_filtered_triple_operations()
 
 if __name__ == '__main__':
     main()
