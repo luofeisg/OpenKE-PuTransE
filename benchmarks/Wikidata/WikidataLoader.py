@@ -1,4 +1,5 @@
 import sys
+import os
 from bs4 import BeautifulSoup
 import re
 from random import sample, randint
@@ -268,7 +269,7 @@ def get_triple_operations_list(revision_file):
                 buggy_revision_files_folder.mkdir(exist_ok=True)
                 buggy_revision_files_dump_subfolder = buggy_revision_files_folder / revision_file.parents[0].name
                 buggy_revision_files_dump_subfolder.mkdir(exist_ok=True)
-                buggy_revision_file_marker =  buggy_revision_files_dump_subfolder / "{}.buggy".format(revision_file_name)
+                buggy_revision_file_marker = buggy_revision_files_dump_subfolder / "{}.buggy".format(revision_file_name)
                 buggy_revision_file_marker.touch()
 
             # Process claims into set of tuples
@@ -297,10 +298,13 @@ def get_triple_operations_list(revision_file):
 
 
 def extract_revision_folders_triple_operations(rev_folder):
-    print("Extract triple operations from folder {} at {}.".format(rev_folder.name, datetime.now().strftime("%H:%M:%S")))
-    item_revision_file_list = [file for file in rev_folder.iterdir() if file.is_file() and not file.name.startswith("redirected_")]
+    print(
+        "Extract triple operations from folder {} at {}.".format(rev_folder.name, datetime.now().strftime("%H:%M:%S")))
+    item_revision_file_list = [file for file in rev_folder.iterdir() if
+                               file.is_file() and not file.name.startswith("redirected_")]
     for item_revision_file in item_revision_file_list:
         save_triple_operations(item_revision_file)
+
 
 def save_triple_operations(item_revision_file):
     item_revision_filename = item_revision_file.name
@@ -738,7 +742,8 @@ def compile_triple_operations():
 
     # Path where triple ops are stored for each item
     triple_ops_path = Path.cwd() / 'triple_operations'
-    triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir() if fld.is_dir() and not fld.name.startswith("processed_")]
+    triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir() if
+                                  fld.is_dir() and not fld.name.startswith("processed_")]
     # triple_ops_file_list = [file for file in triple_ops_path.rglob("*txt.bz2") if file.is_file()]
     # Load dict which maps source and target items in a redirect. We use it to replace redirected entities
     # with their target items
@@ -755,7 +760,8 @@ def compile_triple_operations():
             processed_triple_ops_dump_subfolder = processed_triple_ops_folder / subfolder.name
             processed_triple_ops_dump_subfolder.mkdir(exist_ok=True)
 
-            processed_triple_ops_marker = processed_triple_ops_dump_subfolder / "{}.processed".format(triple_operations_log.name)
+            processed_triple_ops_marker = processed_triple_ops_dump_subfolder / "{}.processed".format(
+                triple_operations_log.name)
             if processed_triple_ops_marker.exists():
                 print("Triple operations file {} already processed - Skip file.".format(triple_operations_log.name))
             else:
@@ -768,7 +774,7 @@ def compile_triple_operations():
                         # Resolve redirects in obj
                         new_objc = redir_dict.get(objc, objc)
                         # if new_objc != objc:
-                            # print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
+                        # print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
 
                         out_line = "{} {} {} {} {}\n".format(subj, new_objc, pred, op_type, ts)
                         # output.write(output_line + "\n")
@@ -808,6 +814,7 @@ def read_filter_file(file):
 
     return filter_list
 
+
 def sort_filtered_triple_operations():
     print("Load filtered triple operations.")
     compiled_triples_path = Path.cwd() / "compiled_triple_operations"
@@ -832,12 +839,18 @@ def sort_filtered_triple_operations():
     with bz2.open(sorted_triple_ops_file, mode="wt", encoding="UTF-8") as f:
         # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
         for index, op in enumerate(triple_operations):
-
             line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], timestamps_sorted[index])
             f.write(line + "\n")
 
 
 def main():
+    # Obtain number of CPU cores
+    num_cores_available = os.cpu_count()
+
+    num_cores_granted = input(
+        "There are {} CPU cores available at your system. How many of them do you want to grant to the Wikidata extraction process?".format(
+            num_cores_available))
+
     wikidata_dump_date = "20200501"
     wikidata_path = Path.cwd()
     print("Current Path is {}.".format(wikidata_path))
@@ -855,7 +868,7 @@ def main():
                           xml_dump.is_file() and xml_dumps_file_pattern.match(xml_dump.name)]
 
     print("Extract revision information from downloaded XML dumps...")
-    with ProcessPoolExecutor() as executor:
+    with ProcessPoolExecutor(max_workers=num_cores_granted) as executor:
         for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
             print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
 
@@ -865,11 +878,12 @@ def main():
     # revision_file_pattern = re.compile(r".*_Q.*\.json\.bz2$$")
     revision_folder_pattern = re.compile(r'[\s\S]*pages-meta-history.*\.bz2$$')
     json_revision_folder = [rev_folder for rev_folder in revision_files_path.iterdir() if rev_folder.is_dir()
-                                                  and revision_folder_pattern.match(rev_folder.name)]
+                            and revision_folder_pattern.match(rev_folder.name)]
 
     print("Extract triple operations from json revision files.")
-    with ProcessPoolExecutor() as executor:
-        for folder, _ in zip(json_revision_folder, executor.map(extract_revision_folders_triple_operations, json_revision_folder)):
+    with ProcessPoolExecutor(max_workers=num_cores_granted) as executor:
+        for folder, _ in zip(json_revision_folder,
+                             executor.map(extract_revision_folders_triple_operations, json_revision_folder)):
             print('DONE processing folder {} at {}'.format(folder.name, datetime.now()))
 
     # Compile dataset with triple operations and replace redirected items
@@ -882,6 +896,7 @@ def main():
     filtered_relations = read_filter_file(Path.cwd() / "filters" / "predicates_filtered_by_LaCroix_et_al_2020")
     filter_compiled_triple_operations(filtered_entitites, filtered_relations)
     sort_filtered_triple_operations()
+
 
 if __name__ == '__main__':
     main()
