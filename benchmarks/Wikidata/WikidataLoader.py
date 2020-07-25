@@ -847,9 +847,9 @@ def main():
     # Obtain number of CPU cores
     num_cores_available = os.cpu_count()
 
-    num_cores_granted = input(
+    num_cores_granted = int(input(
         "There are {} CPU cores available at your system. How many of them do you want to grant to the Wikidata extraction process?".format(
-            num_cores_available))
+            num_cores_available)))
 
     wikidata_dump_date = "20200501"
     wikidata_path = Path.cwd()
@@ -859,7 +859,7 @@ def main():
 
     # Download XML history dumps
     print("Download XML history dumps")
-    download_wikidata_history_dumps(wikidata_dump_date)
+    # download_wikidata_history_dumps(wikidata_dump_date)
 
     # Extract revision information about triple
     xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
