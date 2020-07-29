@@ -2,21 +2,16 @@ import sys
 import os
 from bs4 import BeautifulSoup
 import re
-from random import sample, randint
 from pathlib import Path
 import hashlib
-# from urllib2 import urlopen # Python 2
-from urllib.request import urlopen  # Python 3
+from urllib.request import urlopen
 import bz2
 from html import unescape
 import json
-from qwikidata.entity import WikidataItem
 from datetime import datetime
 import numpy as np
-
+import multiprocessing as mp
 # from nasty_utils import DecompressingTextIOWrapper
-from collections import Counter, defaultdict
-from pprint import pprint
 from concurrent.futures import ProcessPoolExecutor
 
 
@@ -790,6 +785,99 @@ def compile_triple_operations():
             ("Finished gathering of triple extraction for folder {}.".format(subfolder.name))
 
 
+def process_subfolder_triple_operations(redir_dict, subfolder, q):
+    subfolder_triple_ops = [file for file in subfolder.iterdir() if file.is_file() and file.name.startswith("Q")]
+    ("Get triple operations from {}.".format(subfolder.name))
+    for triple_operations_log in subfolder_triple_ops:
+        processed_triple_ops_folder = Path.cwd() / 'triple_operations' / "processed_triple_operations"
+        processed_triple_ops_folder.mkdir(exist_ok=True)
+
+        processed_triple_ops_dump_subfolder = processed_triple_ops_folder / subfolder.name
+        processed_triple_ops_dump_subfolder.mkdir(exist_ok=True)
+
+        processed_triple_ops_marker = processed_triple_ops_dump_subfolder / "{}.processed".format(
+            triple_operations_log.name)
+        if processed_triple_ops_marker.exists():
+            print("Triple operations file {} already processed - Skip file.".format(triple_operations_log.name))
+        else:
+            output_lines = []
+            with bz2.open(triple_operations_log, mode="rt", encoding="UTF-8") as input:
+                for line in input:
+                    # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
+                    subj, objc, pred, op_type, ts = line.split()
+
+                    # Resolve redirects in obj
+                    new_objc = redir_dict.get(objc, objc)
+                    # if new_objc != objc:
+                    # print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
+
+                    out_line = "{} {} {} {} {}\n".format(subj, new_objc, pred, op_type, ts)
+                    # output.write(output_line + "\n")
+                    output_lines.append(out_line)
+
+                # Transmit operations to Queue
+                q.put(output_lines)
+                # Create processed marker
+                processed_triple_ops_marker.touch()
+
+        return ("Finished gathering of triple extraction for folder {}.".format(subfolder.name))
+
+
+def writer(q, file):
+    '''listens for messages on the q, writes to file. '''
+
+    with bz2.open(file, mode="wt", encoding="utf-8") as output:
+        while 1:
+            m = q.get()
+            if m == 'kill':
+                break
+            output.writelines(m)
+            output.flush()
+
+
+def compile_triple_operations_v1(num_cpu_cores):
+    # If not exists: Create output directory
+    output_path = Path.cwd() / "compiled_triple_operations"
+    output_path.mkdir(exist_ok=True)
+
+    # Output file
+    output_file = output_path / "compiled_triple_operations_raw.txt.bz2"
+
+    # Use Manager queue here to delegate writing into a single file from multiple jobs
+    manager = mp.Manager()
+    q = manager.Queue()
+    pool = mp.Pool(num_cpu_cores)
+
+    # Start writer process
+    watcher = pool.apply_async(writer, (q, output_file))
+
+    # Load dict which maps source and target items in a redirect. We use it to replace redirected entities
+    # with their target items
+    redir_dict = get_redirect_dict()
+
+    # Path where triple ops are stored for each item
+    triple_ops_path = Path.cwd() / 'triple_operations'
+    triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir() if
+                                  fld.is_dir() and not fld.name.startswith("processed_")]
+    print("Found {} folders containing item triple operations.".format(len(triple_ops_dump_subfolders)))
+
+    # Each subfolder is processed by a job
+    jobs = []
+    for subfolder in triple_ops_dump_subfolders:
+        job = pool.apply_async(process_subfolder_triple_operations, (redir_dict, subfolder, q))
+        jobs.append(job)
+
+    # Collect job results
+    for job in jobs:
+        result = job.get()
+        print(result)
+
+    # Kill the writer process
+    q.put('kill')
+    pool.close()
+    pool.join()
+
+
 def filter_compiled_triple_operations(items_filter_list, predicates_filter_list):
     compiled_triples_path = Path.cwd() / "compiled_triple_operations"
     raw_triples_file = compiled_triples_path / "compiled_triple_operations_raw.txt.bz2"
@@ -859,7 +947,7 @@ def main():
 
     # Download XML history dumps
     print("Download XML history dumps")
-    # download_wikidata_history_dumps(wikidata_dump_date)
+    download_wikidata_history_dumps(wikidata_dump_date)
 
     # Extract revision information about triple
     xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
@@ -888,7 +976,7 @@ def main():
 
     # Compile dataset with triple operations and replace redirected items
     print("Compile triple operations to single file and resolve redirected object items")
-    compile_triple_operations()
+    compile_triple_operations_v1(num_cores_granted)
 
     # Filter triple operations with entity and relation list from LaCroix et al. (2020)
     print("Load lists of filtered entities and relations from LaCroix et al. (2020).")
