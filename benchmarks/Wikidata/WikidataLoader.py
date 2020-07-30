@@ -826,7 +826,7 @@ def process_subfolder_triple_operations(redir_dict, subfolder, q):
 def writer(q, file):
     '''listens for messages on the q, writes to file. '''
 
-    with bz2.open(file, mode="wt", encoding="utf-8") as output:
+    with bz2.open(file, mode="at", encoding="utf-8") as output:
         while 1:
             m = q.get()
             if m == 'kill':
