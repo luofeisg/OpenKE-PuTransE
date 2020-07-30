@@ -11,7 +11,7 @@ import json
 from datetime import datetime
 import numpy as np
 import multiprocessing as mp
-# from nasty_utils import DecompressingTextIOWrapper
+from nasty_utils import DecompressingTextIOWrapper
 from concurrent.futures import ProcessPoolExecutor
 
 
@@ -787,7 +787,7 @@ def compile_triple_operations():
 
 def process_subfolder_triple_operations(redir_dict, subfolder, q):
     subfolder_triple_ops = [file for file in subfolder.iterdir() if file.is_file() and file.name.startswith("Q")]
-    ("Get triple operations from {}.".format(subfolder.name))
+    print("Get triple operations from {}.".format(subfolder.name))
     for triple_operations_log in subfolder_triple_ops:
         processed_triple_ops_folder = Path.cwd() / 'triple_operations' / "processed_triple_operations"
         processed_triple_ops_folder.mkdir(exist_ok=True)
@@ -820,13 +820,13 @@ def process_subfolder_triple_operations(redir_dict, subfolder, q):
                 # Create processed marker
                 processed_triple_ops_marker.touch()
 
-        return ("Finished gathering of triple extraction for folder {}.".format(subfolder.name))
+    return ("Finished gathering of triple extraction for folder {}.".format(subfolder.name))
 
 
 def writer(q, file):
     '''listens for messages on the q, writes to file. '''
 
-    with bz2.open(file, mode="at", encoding="utf-8") as output:
+    with bz2.open(file, mode="wt", encoding="utf-8") as output:
         while 1:
             m = q.get()
             if m == 'kill':
@@ -883,14 +883,20 @@ def filter_compiled_triple_operations(items_filter_list, predicates_filter_list)
     raw_triples_file = compiled_triples_path / "compiled_triple_operations_raw.txt.bz2"
 
     with bz2.open(compiled_triples_path / "compiled_triple_operations_filtered.txt.bz2", "wt") as output:
-        with bz2.open(raw_triples_file, mode="rt", encoding="UTF-8") as input:
-            # with DecompressingTextIOWrapper(raw_triples_file, encoding="UTF-8", progress_bar=True) as input:
+        #with bz2.open(raw_triples_file, mode="rt", encoding="UTF-8") as input:
+        with DecompressingTextIOWrapper(raw_triples_file, encoding="UTF-8", progress_bar=True) as input:
+            gathered_operations = 0
+            total_operations = 0
             for line in input:
                 subj, objc, pred, op_type, ts = line.split()
+                total_operations += 1
                 if int(subj) in items_filter_list and int(objc) in items_filter_list and int(
                         pred) in predicates_filter_list:
                     output_line = "{} {} {} {} {}".format(subj, objc, pred, op_type, ts)
                     output.write(output_line + "\n")
+                    gathered_operations += 1
+
+    print("Finished filtering process by selecting {} out of {} operations".format(gathered_operations, total_operations))
 
 
 def read_filter_file(file):
@@ -960,10 +966,9 @@ def main():
         for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
             print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
 
-    # Extract triple operations
+    # # Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
     revision_files_path = wikidata_path / "revision_files"
-    # revision_file_pattern = re.compile(r".*_Q.*\.json\.bz2$$")
     revision_folder_pattern = re.compile(r'[\s\S]*pages-meta-history.*\.bz2$$')
     json_revision_folder = [rev_folder for rev_folder in revision_files_path.iterdir() if rev_folder.is_dir()
                             and revision_folder_pattern.match(rev_folder.name)]
