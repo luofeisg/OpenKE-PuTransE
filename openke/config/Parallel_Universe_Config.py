@@ -237,7 +237,7 @@ class Parallel_Universe_Config(Tester):
     def save_model(self, filename=None):
         save_directory = self.checkpoint_dir
         if not filename:
-            filename = "Pu{}_learned_spaces-{}_{}.ckpt".format(self.checkpoint_dir, self.embedding_model.__name__,
+            filename = "Pu{}_learned_spaces-{}_{}.ckpt".format( self.embedding_model.__name__,
                                                           self.next_universe_id,
                                                           self.training_identifier)
         file_directory = "{}{}".format(save_directory, filename)
