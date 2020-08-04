@@ -149,9 +149,9 @@ class Parallel_Universe_Config(Tester):
             batch_size=self.train_dataloader.batch_size
         )
 
-        if self.use_gpu and torch.cuda.device_count() > 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
-            output_model = nn.DataParallel(output_model)
+        # if self.use_gpu and torch.cuda.device_count() > 1:
+        #     print("Let's use", torch.cuda.device_count(), "GPUs!")
+        #     output_model = nn.DataParallel(output_model)
 
         return output_model
 
