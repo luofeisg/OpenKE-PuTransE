@@ -149,9 +149,9 @@ class Parallel_Universe_Config(Tester):
             batch_size=self.train_dataloader.batch_size
         )
 
-        # if self.use_gpu and torch.cuda.device_count() > 1:
-        #     print("Let's use", torch.cuda.device_count(), "GPUs!")
-        #     output_model = nn.DataParallel(output_model)
+        if self.use_gpu and torch.cuda.device_count() > 1:
+            print("Let's use", torch.cuda.device_count(), "GPUs!")
+            output_model = nn.DataParallel(output_model)
 
         return output_model
 
@@ -316,7 +316,7 @@ class Parallel_Universe_Config(Tester):
                     self.best_hit10 = hit10
                     print("Best model | hit@10 of valid set is %f" % self.best_hit10)
                     print('Save model at universe %d.' % self.next_universe_id)
-                    self.save_model("Best_model_Pu{}_learned_spaces-{}_{}.ckpt".format(self.checkpoint_dir, self.embedding_model.__name__,
+                    self.save_model("Best_model_Pu{}_learned_spaces-{}_{}.ckpt".format(self.embedding_model.__name__,
                                                           self.next_universe_id,
                                                           self.training_identifier))
                     self.bad_counts = 0
