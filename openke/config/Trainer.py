@@ -50,7 +50,8 @@ class Trainer(object):
 			'batch_y': self.to_var(data['batch_y'], self.use_gpu),
 			'mode': data['mode']
 		})
-
+		if self.use_gpu and torch.cuda.device_count() > 1:
+			loss.mean()
 
 		loss.backward()
 		self.optimizer.step()		 
