@@ -50,8 +50,6 @@ class Trainer(object):
 			'batch_y': self.to_var(data['batch_y'], self.use_gpu),
 			'mode': data['mode']
 		})
-		if self.use_gpu and torch.cuda.device_count() > 1:
-			loss.mean()
 
 		loss.backward()
 		self.optimizer.step()		 
@@ -59,12 +57,8 @@ class Trainer(object):
 
 	def run(self):
 		if self.use_gpu:
-			# self.model.cuda()
-			if self.use_gpu and torch.cuda.device_count() > 1:
-				self.model = nn.DataParallel(self.model)
-			device = torch.device("cuda:0")
-			self.model.to(device)
-			
+			self.model.cuda()
+
 		if self.optimizer != None:
 			pass
 		elif self.opt_method == "Adagrad" or self.opt_method == "adagrad":
