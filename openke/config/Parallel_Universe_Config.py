@@ -142,16 +142,11 @@ class Parallel_Universe_Config(Tester):
 
     def embedding_model_factory(self, ent_tot, rel_tot, margin):
         embedding_method = self.embedding_model(ent_tot, rel_tot, **self.embedding_model_param)
-
         output_model = NegativeSampling(
             model=embedding_method,
             loss=MarginLoss(margin=margin),
             batch_size=self.train_dataloader.batch_size
         )
-
-        if self.use_gpu and torch.cuda.device_count() > 1:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
-            output_model = nn.DataParallel(output_model)
 
         return output_model
 

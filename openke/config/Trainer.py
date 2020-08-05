@@ -51,8 +51,6 @@ class Trainer(object):
 			'mode': data['mode']
 		})
 
-		if self.use_gpu and torch.cuda.device_count() > 1:
-			loss.mean()
 
 		loss.backward()
 		self.optimizer.step()		 
@@ -61,6 +59,8 @@ class Trainer(object):
 	def run(self):
 		if self.use_gpu:
 			self.model.cuda()
+			if self.use_gpu and torch.cuda.device_count() > 1:
+				self.model = nn.DataParallel(self.model)
 
 		if self.optimizer != None:
 			pass
