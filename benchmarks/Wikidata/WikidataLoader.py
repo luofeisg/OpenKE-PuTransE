@@ -203,11 +203,12 @@ def get_redirect_dict():
     redir_dict = {}
 
     print("Load redirects from {} at {}.".format(redirects_log_folder, datetime.now().strftime("%H:%M:%S")))
-    for redirect_file_log in redirects_log_folder.iterdir():
-        with bz2.open(redirect_file_log, "rt", encoding="UTF-8") as f:
-            for line in f:
-                source_item_id, target_item_id = line.split()
-                redir_dict[source_item_id] = target_item_id
+    if redirects_log_folder.exists():
+        for redirect_file_log in redirects_log_folder.iterdir():
+            with bz2.open(redirect_file_log, "rt", encoding="UTF-8") as f:
+                for line in f:
+                    source_item_id, target_item_id = line.split()
+                    redir_dict[source_item_id] = target_item_id
 
     print("Finished loading redirects at {}.".format(datetime.now().strftime("%H:%M:%S")))
     print("Counted {} redirects.".format(len(redir_dict)))
@@ -782,10 +783,10 @@ def compile_triple_operations():
 
                     # Create processed marker
                     processed_triple_ops_marker.touch()
-            ("Finished gathering of triple extraction for folder {}.".format(subfolder.name))
+        print("Finished gathering of triple extraction for folder {}.".format(subfolder.name))
 
 
-def process_subfolder_triple_operations(redir_dict, subfolder, q):
+def process_subfolder_triple_operations(redir_dict, subfolder, q, filters=None):
     subfolder_triple_ops = [file for file in subfolder.iterdir() if file.is_file() and file.name.startswith("Q")]
     print("Get triple operations from {}.".format(subfolder.name))
     for triple_operations_log in subfolder_triple_ops:
@@ -808,17 +809,22 @@ def process_subfolder_triple_operations(redir_dict, subfolder, q):
 
                     # Resolve redirects in obj
                     new_objc = redir_dict.get(objc, objc)
-                    # if new_objc != objc:
-                    # print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
 
-                    out_line = "{} {} {} {} {}\n".format(subj, new_objc, pred, op_type, ts)
-                    # output.write(output_line + "\n")
+                    # If filter is attached use it to only collect selected triples ops
+                    if filters and (int(subj) in filters["filtered_entitites"]
+                                    and int(objc) in filters["filtered_entitites"]
+                                    and int(pred) in filters["filtered_relations"]):
+                        out_line = "{} {} {} {} {}".format(subj, objc, pred, op_type, ts)
+                    else:
+                        continue
+
                     output_lines.append(out_line)
 
                 # Transmit operations to Queue
-                q.put(output_lines)
-                # Create processed marker
-                processed_triple_ops_marker.touch()
+                if output_lines:
+                    q.put(output_lines)
+                    # Create processed marker
+                    processed_triple_ops_marker.touch()
 
     return ("Finished gathering of triple extraction for folder {}.".format(subfolder.name))
 
@@ -833,6 +839,54 @@ def writer(q, file):
                 break
             output.writelines(m)
             output.flush()
+
+
+def compile_and_filter_triple_operations_v1(num_cpu_cores):
+    # If not exists: Create output directory
+    output_path = Path.cwd() / "compiled_triple_operations"
+    output_path.mkdir(exist_ok=True)
+
+    # Output file
+    output_file = output_path / "compiled_and_filtered_triple_operations.txt.bz2"
+
+    # Use Manager queue here to delegate writing into a single file from multiple jobs
+    manager = mp.Manager()
+    q = manager.Queue()
+    pool = mp.Pool(num_cpu_cores)
+
+    # Start writer process
+    watcher = pool.apply_async(writer, (q, output_file))
+
+    print("Load redirect mapping into dict.")
+    redir_dict = get_redirect_dict()
+
+    #
+    print("Load lists of filtered entities and relations from LaCroix et al. (2020).")
+    filter_path = Path.cwd() / "filters"
+    filters = {"filtered_entitites": read_filter_file(filter_path / "entities_filtered_by_LaCroix_et_al_2020")
+        , "filtered_relations": read_filter_file(filter_path / "predicates_filtered_by_LaCroix_et_al_2020")}
+
+    # Path where triple ops are stored for each item
+    triple_ops_path = Path.cwd() / 'triple_operations'
+    triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir() if
+                                  fld.is_dir() and not fld.name.startswith("processed_")]
+    print("Found {} folders containing item triple operations.".format(len(triple_ops_dump_subfolders)))
+
+    # Each subfolder is processed by a job
+    jobs = []
+    for subfolder in triple_ops_dump_subfolders:
+        job = pool.apply_async(process_subfolder_triple_operations, (redir_dict, filters, subfolder, q))
+        jobs.append(job)
+
+    # Collect job results
+    for job in jobs:
+        result = job.get()
+        print(result)
+
+    # Kill the writer process
+    q.put('kill')
+    pool.close()
+    pool.join()
 
 
 def compile_triple_operations_v1(num_cpu_cores):
@@ -883,7 +937,7 @@ def filter_compiled_triple_operations(items_filter_list, predicates_filter_list)
     raw_triples_file = compiled_triples_path / "compiled_triple_operations_raw.txt.bz2"
 
     with bz2.open(compiled_triples_path / "compiled_triple_operations_filtered.txt.bz2", "wt") as output:
-        #with bz2.open(raw_triples_file, mode="rt", encoding="UTF-8") as input:
+        # with bz2.open(raw_triples_file, mode="rt", encoding="UTF-8") as input:
         with DecompressingTextIOWrapper(raw_triples_file, encoding="UTF-8", progress_bar=True) as input:
             gathered_operations = 0
             total_operations = 0
@@ -896,7 +950,8 @@ def filter_compiled_triple_operations(items_filter_list, predicates_filter_list)
                     output.write(output_line + "\n")
                     gathered_operations += 1
 
-    print("Finished filtering process by selecting {} out of {} operations".format(gathered_operations, total_operations))
+    print(
+        "Finished filtering process by selecting {} out of {} operations".format(gathered_operations, total_operations))
 
 
 def read_filter_file(file):
