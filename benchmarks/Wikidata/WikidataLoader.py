@@ -13,6 +13,7 @@ import numpy as np
 import multiprocessing as mp
 from nasty_utils import DecompressingTextIOWrapper
 from concurrent.futures import ProcessPoolExecutor
+import operator
 
 
 #################################### Download Wikidata Dumps ####################################
@@ -740,6 +741,7 @@ def compile_triple_operations():
     triple_ops_path = Path.cwd() / 'triple_operations'
     triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir() if
                                   fld.is_dir() and not fld.name.startswith("processed_")]
+
     # triple_ops_file_list = [file for file in triple_ops_path.rglob("*txt.bz2") if file.is_file()]
     # Load dict which maps source and target items in a redirect. We use it to replace redirected entities
     # with their target items
@@ -769,8 +771,8 @@ def compile_triple_operations():
 
                         # Resolve redirects in obj
                         new_objc = redir_dict.get(objc, objc)
-                        # if new_objc != objc:
-                        # print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
+                        if new_objc != objc:
+                            print("Redirect! Replaced item Q{} with Q{}".format(objc, new_objc))
 
                         out_line = "{} {} {} {} {}\n".format(subj, new_objc, pred, op_type, ts)
                         # output.write(output_line + "\n")
@@ -786,18 +788,21 @@ def compile_triple_operations():
         print("Finished gathering of triple extraction for folder {}.".format(subfolder.name))
 
 
-def process_subfolder_triple_operations(redir_dict, subfolder, q, filters=None):
+def process_subfolder_triple_operations(subfolder, q, redir_dict=None, filters=None):
     subfolder_triple_ops = [file for file in subfolder.iterdir() if file.is_file() and file.name.startswith("Q")]
     print("Get triple operations from {}.".format(subfolder.name))
+
+    # Folder for processed markers
+    processed_triple_ops_fld = Path.cwd() / 'triple_operations' / "processed_triple_operations_v1"
+    processed_triple_ops_fld.mkdir(exist_ok=True)
+
+    processed_triple_ops_dump_subfld = processed_triple_ops_fld / subfolder.name
+    processed_triple_ops_dump_subfld.mkdir(exist_ok=True)
+
     for triple_operations_log in subfolder_triple_ops:
-        processed_triple_ops_folder = Path.cwd() / 'triple_operations' / "processed_triple_operations"
-        processed_triple_ops_folder.mkdir(exist_ok=True)
-
-        processed_triple_ops_dump_subfolder = processed_triple_ops_folder / subfolder.name
-        processed_triple_ops_dump_subfolder.mkdir(exist_ok=True)
-
-        processed_triple_ops_marker = processed_triple_ops_dump_subfolder / "{}.processed".format(
+        processed_triple_ops_marker = processed_triple_ops_dump_subfld / "{}.processed".format(
             triple_operations_log.name)
+
         if processed_triple_ops_marker.exists():
             print("Triple operations file {} already processed - Skip file.".format(triple_operations_log.name))
         else:
@@ -808,20 +813,21 @@ def process_subfolder_triple_operations(redir_dict, subfolder, q, filters=None):
                     subj, objc, pred, op_type, ts = line.split()
 
                     # Resolve redirects in obj
-                    new_objc = redir_dict.get(objc, objc)
+                    if redir_dict:
+                        objc = redir_dict.get(objc, objc)
 
                     # If filter is attached use it to only collect selected triples ops
-                    if filters and (int(subj) in filters["filtered_entitites"]
-                                    and int(objc) in filters["filtered_entitites"]
-                                    and int(pred) in filters["filtered_relations"]):
-                        out_line = "{} {} {} {} {}".format(subj, objc, pred, op_type, ts)
-                    else:
-                        continue
+                    if filters:
+                        if not (subj in filters["filtered_entities"]
+                                and objc in filters["filtered_entities"]
+                                and pred in filters["filtered_relations"]):
+                            continue
 
+                    out_line = "{} {} {} {} {}\n".format(subj, objc, pred, op_type, ts)
                     output_lines.append(out_line)
 
-                # Transmit operations to Queue
                 if output_lines:
+                    # Transmit operations to Queue
                     q.put(output_lines)
                     # Create processed marker
                     processed_triple_ops_marker.touch()
@@ -841,61 +847,13 @@ def writer(q, file):
             output.flush()
 
 
-def compile_and_filter_triple_operations_v1(num_cpu_cores):
+def compile_triple_operations_v1(num_cpu_cores, filters=None, resolve_redir=True):
     # If not exists: Create output directory
     output_path = Path.cwd() / "compiled_triple_operations"
     output_path.mkdir(exist_ok=True)
 
     # Output file
-    output_file = output_path / "compiled_and_filtered_triple_operations.txt.bz2"
-
-    # Use Manager queue here to delegate writing into a single file from multiple jobs
-    manager = mp.Manager()
-    q = manager.Queue()
-    pool = mp.Pool(num_cpu_cores)
-
-    # Start writer process
-    watcher = pool.apply_async(writer, (q, output_file))
-
-    print("Load redirect mapping into dict.")
-    redir_dict = get_redirect_dict()
-
-    #
-    print("Load lists of filtered entities and relations from LaCroix et al. (2020).")
-    filter_path = Path.cwd() / "filters"
-    filters = {"filtered_entitites": read_filter_file(filter_path / "entities_filtered_by_LaCroix_et_al_2020")
-        , "filtered_relations": read_filter_file(filter_path / "predicates_filtered_by_LaCroix_et_al_2020")}
-
-    # Path where triple ops are stored for each item
-    triple_ops_path = Path.cwd() / 'triple_operations'
-    triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir() if
-                                  fld.is_dir() and not fld.name.startswith("processed_")]
-    print("Found {} folders containing item triple operations.".format(len(triple_ops_dump_subfolders)))
-
-    # Each subfolder is processed by a job
-    jobs = []
-    for subfolder in triple_ops_dump_subfolders:
-        job = pool.apply_async(process_subfolder_triple_operations, (redir_dict, filters, subfolder, q))
-        jobs.append(job)
-
-    # Collect job results
-    for job in jobs:
-        result = job.get()
-        print(result)
-
-    # Kill the writer process
-    q.put('kill')
-    pool.close()
-    pool.join()
-
-
-def compile_triple_operations_v1(num_cpu_cores):
-    # If not exists: Create output directory
-    output_path = Path.cwd() / "compiled_triple_operations"
-    output_path.mkdir(exist_ok=True)
-
-    # Output file
-    output_file = output_path / "compiled_triple_operations_raw.txt.bz2"
+    output_file = output_path / "compiled_triple_operations_directly_filtered.txt.bz2"
 
     # Use Manager queue here to delegate writing into a single file from multiple jobs
     manager = mp.Manager()
@@ -911,14 +869,14 @@ def compile_triple_operations_v1(num_cpu_cores):
 
     # Path where triple ops are stored for each item
     triple_ops_path = Path.cwd() / 'triple_operations'
-    triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir() if
-                                  fld.is_dir() and not fld.name.startswith("processed_")]
+    triple_ops_dump_subfolders = [fld for fld in triple_ops_path.iterdir()
+                                  if fld.is_dir() and not fld.name.startswith("processed_")]
     print("Found {} folders containing item triple operations.".format(len(triple_ops_dump_subfolders)))
 
-    # Each subfolder is processed by a job
+    # Each subfolder is attached to a job
     jobs = []
     for subfolder in triple_ops_dump_subfolders:
-        job = pool.apply_async(process_subfolder_triple_operations, (redir_dict, subfolder, q))
+        job = pool.apply_async(process_subfolder_triple_operations, (subfolder, q, redir_dict, filters))
         jobs.append(job)
 
     # Collect job results
@@ -944,8 +902,7 @@ def filter_compiled_triple_operations(items_filter_list, predicates_filter_list)
             for line in input:
                 subj, objc, pred, op_type, ts = line.split()
                 total_operations += 1
-                if int(subj) in items_filter_list and int(objc) in items_filter_list and int(
-                        pred) in predicates_filter_list:
+                if subj in items_filter_list and objc in items_filter_list and pred in predicates_filter_list:
                     output_line = "{} {} {} {} {}".format(subj, objc, pred, op_type, ts)
                     output.write(output_line + "\n")
                     gathered_operations += 1
@@ -959,20 +916,160 @@ def read_filter_file(file):
     with open(file) as f:
         for line in f:
             id, wikidata_id, name = line.split("\t")
-            filter_list.append(int(wikidata_id))
+            # filter_list.append(int(wikidata_id))
+            filter_list.append(wikidata_id)
 
     return filter_list
 
 
-def sort_filtered_triple_operations():
+def remove_inconsistent_triple_operations(triple_operations):
+    index = 0
+    consistent_triple_operations = []
+    triple_state_dict = {}
+
+    while index + 1 < len(triple_operations):
+        curr_subjc, curr_objc, curr_pred, curr_op_type, curr_ts = triple_operations[index]
+        curr_triple = (curr_subjc, curr_objc, curr_pred)
+
+        next_subjc, next_objc, next_pred, next_op_type, next_ts = triple_operations[index + 1]
+        next_triple = (next_subjc, next_objc, next_pred)
+
+        # Handle duplicate triple operation (h,r,t,+,ts) --> (h,r,t,-,ts)
+        if curr_triple == next_triple and curr_ts == next_ts and curr_op_type != next_op_type:
+            ''' To solve the following pattern:
+                -------------------------------
+                2521388 1622272 106 + 2013-04-12T16:12:19Z <-> before replacing redirected object with target: 2521388 10860762 106 + 2013-04-12T16:12:19Z
+                2521388 1622272 106 + 2013-06-02T12:12:01Z <-> before replacing redirected object with target: 2521388 1660508 106 + 2013-06-02T12:12:01Z
+                2521388 1622272 106 - 2013-06-02T12:12:01Z <-> before replacing redirected object with target: 2521388 10860762 106 - 2013-06-02T12:12:01Z
+                2521388 1622272 106 + 2013-10-17T19:24:53Z <-> before replacing redirected object with target: 2521388 1622272 106 + 2013-10-17T19:24:53Z
+                2521388 1622272 106 - 2013-10-17T19:24:53Z <-> before replacing redirected object with target: 2521388 1660508 106 - 2013-10-17T19:24:53Z'''
+
+            index += 2
+            continue
+
+        # Handle first operation for a triple
+        if curr_triple not in triple_state_dict:
+            if curr_op_type == "-":
+                print("Invalid triple operations pattern. First operation for {} is a deletion".format(curr_triple))
+
+
+        # Handle duplicate triple operation (h,r,t,+,ts) --> (h,r,t,+,ts + 1)
+        elif triple_state_dict[curr_triple] == curr_op_type:
+            ''' To solve the following pattern:
+                    -------------------------------
+                2527494 21139794 527 + 2015-11-12T13:40:26Z <-> before replacing redirected object with target: 2527494 21139794 527 + 2015-11-12T13:40:26Z 
+                2527494 21139794 527 + 2015-11-12T13:40:35Z <-> before replacing redirected object with target: 2527494 21141770 527 + 2015-11-12T13:40:35Z
+                2527494 21139794 527 - 2016-01-22T03:18:50Z <-> before replacing redirected object with target: 2527494 21139794 527 - 2016-01-22T03:18:50Z
+                2527494 21139794 527 - 2016-01-22T03:18:52Z <-> before replacing redirected object with target: 2527494 21141770 527 - 2016-01-22T03:18:52Z'''
+            index += 1
+            continue
+
+        triple_state_dict[curr_triple] = curr_op_type
+        consistent_triple_operations.append(triple_operations[index])
+        index += 1
+
+    return consistent_triple_operations
+
+
+# def resolve_inconsistent_triple_ops_sequence(triple_operations):
+#     ''' 2521388 1622272 106 + 2013-04-12T16:12:19Z <-> before replacing redirected object with target: 2521388 10860762 106 + 2013-04-12T16:12:19Z
+#         2521388 1622272 106 + 2013-06-02T12:12:01Z <-> before replacing redirected object with target: 2521388 1660508 106 + 2013-06-02T12:12:01Z
+#         2521388 1622272 106 - 2013-06-02T12:12:01Z <-> before replacing redirected object with target: 2521388 10860762 106 - 2013-06-02T12:12:01Z
+#         2521388 1622272 106 + 2013-10-17T19:24:53Z <-> before replacing redirected object with target: 2521388 1622272 106 + 2013-10-17T19:24:53Z
+#         2521388 1622272 106 - 2013-10-17T19:24:53Z <-> before replacing redirected object with target: 2521388 1660508 106 - 2013-10-17T19:24:53Z'''
+#
+#     triple_state_dict = {}
+#     index = 0
+#     while (index < len(triple_operations) - 1):
+#         curr_subjc, curr_objc, curr_pred, curr_op_type, curr_ts = triple_operations[index]
+#         curr_triple = (curr_subjc, curr_objc, curr_pred)
+#
+#         next_subjc, next_objc, next_pred, next_op_type, next_ts = triple_operations[index + 1]
+#         next_triple = (next_subjc, next_objc, next_pred)
+#
+#         # Handle first operation for a triple
+#         if curr_triple not in triple_state_dict:
+#             # Handle case if first occurence is triple deletion
+#             if curr_op_type == "-":
+#                 if next_triple == curr_triple and next_op_type == "+":
+#                     # Switch indexes of current and next operation
+#                     triple_operations[index] = (next_subjc, next_objc, next_pred, next_op_type, next_ts)
+#                     triple_operations[index + 1] = (curr_subjc, curr_objc, curr_pred, curr_op_type, curr_ts)
+#                     # Continue after next index
+#                     triple_state_dict[curr_triple] = curr_op_type
+#                     index += 2
+#                     continue
+#                 else:
+#                     print("Invalid triple operations pattern. First operation for {} is a deletion".format(curr_triple))
+#
+#         # Handle subsequent occurences
+#         else:
+#             if curr_triple == next_triple:
+#                 if triple_state_dict[curr_triple] == curr_op_type:
+#                     triple_operations[index] = (next_subjc, next_objc, next_pred, next_op_type, next_ts)
+#                     triple_operations[index + 1] = (curr_subjc, curr_objc, curr_pred, curr_op_type, curr_ts)
+#                     # Continue after next index
+#                     triple_state_dict[curr_triple] = curr_op_type
+#                     index += 2
+#                     continue
+#
+#         triple_state_dict[curr_triple] = curr_op_type
+#         index += 1
+
+
+def sort_filtered_triple_operations_v1(input_file_name, output_filename, compress_output=False):
     print("Load filtered triple operations.")
     compiled_triples_path = Path.cwd() / "compiled_triple_operations"
-    # filtered_triples_file = compiled_triples_path / "compiled_triple_operations_raw.txt.bz2"
-    filtered_triples_file = compiled_triples_path / "compiled_triple_operations_filtered.txt.bz2"
+    input_file = compiled_triples_path / input_file_name
+
+    # Get triple operations from file
+    triple_operations = []
+    with bz2.open(input_file, mode="rt", encoding="UTF-8") as f:
+        for line in f:
+            # subj, objc, pred, op_type, ts = line.split()
+            triple_operations.append(line.split())
+
+    # Sort triple operations with respect to timestamp, triple, op_type
+    triple_operations = sorted(triple_operations, key=operator.itemgetter(4, 0, 1, 2, 3))
+    # TEST Save sorted triple operations list in file
+    # output_name = "test_sorted"
+    # sorted_triple_ops_file = compiled_triples_path / "{}.txt".format(output_name)
+    # with sorted_triple_ops_file.open(mode="wt", encoding="UTF-8") as f:
+    #     for index, op in enumerate(triple_operations):
+    #         # line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], timestamps_sorted[index])
+    #         line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], op[4])
+    #         f.write(line + "\n")
+
+    # Resolve inconsistencies that emerge after replacing redirected objects with their target_id
+    # - where inserts and deletes of a triples possess the same ts
+    triple_operations = remove_inconsistent_triple_operations(triple_operations)
+
+    print("Save sorted list to file.")
+    if compress_output:
+        output_name = output_filename if output_filename else "compiled_triple_operations_filtered_and_sorted"
+        sorted_triple_ops_file = compiled_triples_path / "{}.txt.bz2".format(output_name)
+        f = bz2.open(sorted_triple_ops_file, mode="wt", encoding="UTF-8")
+    else:
+        output_name = output_filename if output_filename else "compiled_triple_operations_filtered_and_sorted"
+        sorted_triple_ops_file = compiled_triples_path / "{}.txt".format(output_name)
+        f = sorted_triple_ops_file.open(mode="wt", encoding="UTF-8")
+
+    # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
+    for index, op in enumerate(triple_operations):
+        # line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], timestamps_sorted[index])
+        line = "{} {} {} {} {}".format(op[0], op[1], op[2], op[3], op[4])
+        f.write(line + "\n")
+    f.close()
+
+
+def sort_filtered_triple_operations(input_file_name, output_filename):
+    print("Load filtered triple operations.")
+    compiled_triples_path = Path.cwd() / "compiled_triple_operations"
+    input_file = compiled_triples_path / input_file_name
 
     triple_operations = []
     timestamps = []
-    with bz2.open(filtered_triples_file, mode="rt", encoding="UTF-8") as f:
+    with bz2.open(input_file, mode="rt", encoding="UTF-8") as f:
         for line in f:
             subj, objc, pred, op_type, ts = line.split()
             triple_operations.append((int(subj), int(objc), int(pred), op_type))
@@ -984,7 +1081,8 @@ def sort_filtered_triple_operations():
     triple_operations = [triple_operations[i] for i in timestamps_sorted_indexes]
 
     print("Save sorted list to file.")
-    sorted_triple_ops_file = compiled_triples_path / "compiled_triple_operations_filtered_and_sorted.txt.bz2"
+    output_name = output_filename if output_filename else "compiled_triple_operations_filtered_and_sorted"
+    sorted_triple_ops_file = compiled_triples_path / "{}.txt.bz2".format(output_name)
     with bz2.open(sorted_triple_ops_file, mode="wt", encoding="UTF-8") as f:
         # triple_operation format : [subject, object, predicate, operation_type, rev_ts]
         for index, op in enumerate(triple_operations):
@@ -1008,7 +1106,7 @@ def main():
 
     # Download XML history dumps
     print("Download XML history dumps")
-    download_wikidata_history_dumps(wikidata_dump_date)
+    # download_wikidata_history_dumps(wikidata_dump_date)
 
     # Extract revision information about triple
     xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
@@ -1021,7 +1119,7 @@ def main():
         for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
             print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
 
-    # # Extract triple operations
+    # Extract triple operations
     print("Save paths of extracted json.bz2 revision files into list")
     revision_files_path = wikidata_path / "revision_files"
     revision_folder_pattern = re.compile(r'[\s\S]*pages-meta-history.*\.bz2$$')
@@ -1035,16 +1133,87 @@ def main():
             print('DONE processing folder {} at {}'.format(folder.name, datetime.now()))
 
     # Compile dataset with triple operations and replace redirected items
-    print("Compile triple operations to single file and resolve redirected object items")
-    compile_triple_operations_v1(num_cores_granted)
+    # --> Time spent: compiled_triple_operations_raw.txt.bz2: 100%|██████████| 9.56M/9.56M [1:03:12<00:00, 2.64kB/s]
+    print("Compile triple operations to single file and resolve redirected object items.")
+    compile_triple_operations()
+
+    print("Load lists of filtered entities and relations from LaCroix et al. (2020).")
+    filter_path = Path.cwd() / "filters"
+    filtered_entities = read_filter_file(filter_path / "entities_filtered_by_LaCroix_et_al_2020")
+    filtered_relations = read_filter_file(filter_path / "predicates_filtered_by_LaCroix_et_al_2020")
+
+    print("Filter triple operations.")
+    filter_compiled_triple_operations(filtered_entities, filtered_relations)
 
     # Filter triple operations with entity and relation list from LaCroix et al. (2020)
+    # Time spent: compiled_triple_operations_raw.txt.bz2: 100%|██████████| 10.3M/10.3M [49:59<00:00, 3.61kB/s]
+
+    sort_filtered_triple_operations(input_file_name="compiled_triple_operations_filtered.txt.bz2",
+                                    output_filename="Sorted_triple_ops")
+
+
+def main2():
+    # Obtain number of CPU cores
+    num_cores_available = os.cpu_count()
+
+    num_cores_granted = int(input(
+        "There are {} CPU cores available at your system. How many of them do you want to grant to the Wikidata extraction process?".format(
+            num_cores_available)))
+
+    wikidata_dump_date = "20200501"
+    wikidata_path = Path.cwd()
+    print("Current Path is {}.".format(wikidata_path))
+
+    print("Start extraction process for xml history files dumped on {}.".format(wikidata_dump_date))
+    #
+    # # Download XML history dumps
+    # print("Download XML history dumps")
+    # download_wikidata_history_dumps(wikidata_dump_date)
+    #
+    # # Extract revision information about triple
+    # xml_dumps_path = Path.cwd() / "xml_dumps_{}".format(wikidata_dump_date)
+    # xml_dumps_file_pattern = re.compile(r"[\s\S]*pages-meta-history.*\.bz2$$")
+    # xml_dump_file_list = [xml_dump for xml_dump in xml_dumps_path.iterdir() if
+    #                       xml_dump.is_file() and xml_dumps_file_pattern.match(xml_dump.name)]
+    #
+    # print("Extract revision information from downloaded XML dumps...")
+    # with ProcessPoolExecutor(max_workers=num_cores_granted) as executor:
+    #     for xml_file, _ in zip(xml_dump_file_list, executor.map(process_dump_file, xml_dump_file_list)):
+    #         print('File {} has been processed successfully: {}'.format(xml_file.name, datetime.now()))
+    #
+    # # Extract triple operations
+    # print("Save paths of extracted json.bz2 revision files into list")
+    # revision_files_path = wikidata_path / "revision_files"
+    # revision_folder_pattern = re.compile(r'[\s\S]*pages-meta-history.*\.bz2$$')
+    # json_revision_folder = [rev_folder for rev_folder in revision_files_path.iterdir() if rev_folder.is_dir()
+    #                         and revision_folder_pattern.match(rev_folder.name)]
+    #
+    # # print("Extract triple operations from json revision files.")
+    # with ProcessPoolExecutor(max_workers=num_cores_granted) as executor:
+    #     for folder, _ in zip(json_revision_folder,
+    #                          executor.map(extract_revision_folders_triple_operations, json_revision_folder)):
+    #         print('DONE processing folder {} at {}'.format(folder.name, datetime.now()))
+
+    # Compile dataset with triple operations and replace redirected items
+    # Time spent: start:15:57:36 --> end: 16:30:33
+    print("Compile triple operations to single file "
+          "+ resolve redirected object items "
+          "+ Filter entities and relations accordinng to LaCroix et al. (2020)")
+
     print("Load lists of filtered entities and relations from LaCroix et al. (2020).")
-    filtered_entitites = read_filter_file(Path.cwd() / "filters" / "entities_filtered_by_LaCroix_et_al_2020")
-    filtered_relations = read_filter_file(Path.cwd() / "filters" / "predicates_filtered_by_LaCroix_et_al_2020")
-    filter_compiled_triple_operations(filtered_entitites, filtered_relations)
-    sort_filtered_triple_operations()
+    filter_path = Path.cwd() / "filters"
+    filters = {"filtered_entities": read_filter_file(filter_path / "entities_filtered_by_LaCroix_et_al_2020"),
+               "filtered_relations": read_filter_file(filter_path / "predicates_filtered_by_LaCroix_et_al_2020")}
+
+    print("Start compilation of triple operations at {}.".format(datetime.now().strftime("%H:%M:%S")))
+    compile_triple_operations_v1(num_cores_granted, filters=filters, resolve_redir=True)
+    print("Finish at {}.".format(datetime.now().strftime("%H:%M:%S")))
+
+    print("Sort and save triple operations.")
+    sort_filtered_triple_operations_v1(input_file_name="compiled_triple_operations_directly_filtered.txt.bz2",
+                                       output_filename="compiled_triple_operations_directly_filtered_and_sorted",
+                                       compress_output=True)
 
 
 if __name__ == '__main__':
-    main()
+    main2()
