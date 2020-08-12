@@ -88,7 +88,7 @@ def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path,
     trained_epochs = 0
 
     # while(early_stopping_patience !=0):
-    while not bad_count_limit_reached or trained_epochs < max_epochs:
+    while not bad_count_limit_reached and trained_epochs < max_epochs:
         trainer.run()
         trained_epochs += valid_steps
 
