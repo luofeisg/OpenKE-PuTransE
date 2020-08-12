@@ -16,16 +16,17 @@ from copy import deepcopy
 
 
 def get_hyper_param_permutations(transe_hyper_param_dict):
-    permutated_hyperparam_dict = [{"norm" : norm, "margin": margin, "learning_rate" : lr, "dimension": dim}
-           for norm in transe_hyper_param_dict["norm"]
-           for margin in transe_hyper_param_dict["margin"]
-           for lr in transe_hyper_param_dict["learning_rate"]
-           for dim in transe_hyper_param_dict["dimension"]
-           ]
+    permutated_hyperparam_dict = [{"norm": norm, "margin": margin, "learning_rate": lr, "dimension": dim}
+                                  for norm in transe_hyper_param_dict["norm"]
+                                  for margin in transe_hyper_param_dict["margin"]
+                                  for lr in transe_hyper_param_dict["learning_rate"]
+                                  for dim in transe_hyper_param_dict["dimension"]
+                                  ]
 
     return permutated_hyperparam_dict
 
-def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path, valid_steps, early_stop_patience):
+
+def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path, valid_steps, early_stop_patience, max_epochs):
     init_random_seed = 4
     print("Initial random seed is:", init_random_seed)
 
@@ -87,12 +88,15 @@ def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path,
     trained_epochs = 0
 
     # while(early_stopping_patience !=0):
-    while (not bad_count_limit_reached):
+    while not bad_count_limit_reached or trained_epochs < max_epochs:
         trainer.run()
         trained_epochs += valid_steps
 
         # Validation
+        # TEST
         hit10 = validator.valid()
+        # hit10 = 2 * trained_epochs * experiment_index
+
         print("hits@10 is: {}.".format(hit10))
         if hit10 > best_hit10:
             best_hit10 = hit10
@@ -116,6 +120,7 @@ def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path,
 
     return best_model
 
+
 def test_model(model, dataset_path):
     # -- Validator
     test_dataloader = TestDataLoader(dataset_path, "link", mode='test')
@@ -131,14 +136,8 @@ def test_model(model, dataset_path):
 
     return mr, acc
 
-def grid_search_TransE(dataset_name, dataset_path, valid_steps=100, early_stop_patience=4):
-    # Define hyper param ranges
-    transe_hyper_param_dict = {}
-    transe_hyper_param_dict["norm"] = [1, 2]
-    transe_hyper_param_dict["margin"] = [1, 2, 5, 10]
-    transe_hyper_param_dict["dimension"] = [20, 50, 100]
-    transe_hyper_param_dict["learning_rate"] = [0.1, 0.01, 0.001]
 
+def grid_search_TransE(transe_hyper_param_dict, dataset_name, dataset_path, valid_steps=100, early_stop_patience=4, max_epochs=2000):
     valid_steps = valid_steps
     early_stop_patience = early_stop_patience
 
@@ -153,8 +152,11 @@ def grid_search_TransE(dataset_name, dataset_path, valid_steps=100, early_stop_p
         print("- with hyper params")
         print(dicct)
 
-        trained_model = train_TransE(dicct, dataset_name, experiment_index, dataset_path, valid_steps, early_stop_patience)
+        trained_model = train_TransE(dicct, dataset_name, experiment_index, dataset_path, valid_steps,
+                                     early_stop_patience, max_epochs)
         mr, acc = test_model(trained_model, dataset_path)
+        # TEST
+        # mr, acc = 250 - experiment_index, 0.1 * experiment_index
 
         print("Mean Rank: {}".format(mr))
         print("Accuracy: {}".format(acc))
@@ -175,15 +177,26 @@ def main():
     dataset_path = "../benchmarks/WN18/"
     dataset_name = "WN18"
 
+    # Test
     valid_steps = 100
     early_stop_patience = 4
+    max_epochs = 2000
 
-    best_trained_model, best_hyper_param = grid_search_TransE(dataset_name, dataset_path, valid_steps, early_stop_patience)
+    # Define hyper param ranges
+    transe_hyper_param_dict = {}
+    transe_hyper_param_dict["norm"] = [1, 2]
+    transe_hyper_param_dict["margin"] = [1, 2, 5, 10]
+    transe_hyper_param_dict["dimension"] = [20, 50, 100]
+    transe_hyper_param_dict["learning_rate"] = [0.1, 0.01, 0.001]
+
+    best_trained_model, best_hyper_param = grid_search_TransE(transe_hyper_param_dict, dataset_name, dataset_path,
+                                                              valid_steps, early_stop_patience, max_epochs)
 
     print("-----------------------------")
     print("Save best model with hyper params:\n")
     print(best_hyper_param)
-    best_trained_model.save_checkpoint('../checkpoint/transe_{}_best.ckpt'.format(dataset_name))
+    best_trained_model.save_checkpoint('../checkpoint/transe_{}_optimal_model.ckpt'.format(dataset_name))
+
 
 if __name__ == '__main__':
     main()
