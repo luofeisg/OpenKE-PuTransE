@@ -137,7 +137,7 @@ def test_model(model, dataset_path):
     return mr, acc
 
 
-def grid_search_TransE(transe_hyper_param_dict, dataset_name, dataset_path, valid_steps=100, early_stop_patience=4, max_epochs=2000):
+def grid_search_TransE(transe_hyper_param_dict, dataset_name, dataset_path, valid_steps=100, early_stop_patience=4, max_epochs=1000):
     valid_steps = valid_steps
     early_stop_patience = early_stop_patience
 
@@ -178,9 +178,9 @@ def main():
     dataset_name = "WN18"
 
     # Test
-    valid_steps = 100
+    valid_steps = 50
     early_stop_patience = 4
-    max_epochs = 2000
+    max_epochs = 1000
 
     # Define hyper param ranges
     transe_hyper_param_dict = {}
