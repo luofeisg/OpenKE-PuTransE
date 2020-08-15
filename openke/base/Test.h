@@ -187,7 +187,7 @@ void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
                     if (not _find(j + filter_offset, t, r)){
                         l_filter_s += 1;
                     }else{
-                        printf("Found: %ld, %ld, %ld.\n", j + filter_offset, t, r);
+                        // printf("Found: %ld, %ld, %ld.\n", j + filter_offset, t, r);
                     }
                 }
                 if (type_constrain) {
@@ -307,7 +307,7 @@ void testTail(REAL *con, INT lastTail, bool type_constrain = false) {
                     if (not _find(h, j + filter_offset, r)){
                         r_filter_s += 1;
                     } else {
-                        printf("Found: %ld, %ld, %ld.\n", h, j + filter_offset, r);
+                        // printf("Found: %ld, %ld, %ld.\n", h, j + filter_offset, r);
                     }
                 }
                 if (type_constrain) {
