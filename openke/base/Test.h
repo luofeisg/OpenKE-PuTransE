@@ -420,12 +420,18 @@ extern "C"
 void test_link_prediction(bool type_constrain = false) {
     printf("Test Total is: %ld.\n", testTotal);
     printf("Triple Total is: %ld.\n", tripleTotal);
-    printf("l_rank is: %f.\n", l_rank);
-    printf("r_rank is: %f.\n", r_rank);
+    if (incrementalSetting)
+        printf("Currently contained entities: %ld.\n", num_currently_contained_entities);
+    else
+        printf("Entity Total: %ld.\n", entityTotal);
+    
+
     l_rank /= testTotal;
     r_rank /= testTotal;
     l_reci_rank /= testTotal;
     r_reci_rank /= testTotal;
+    printf("l_rank is: %f.\n", l_rank);
+    printf("r_rank is: %f.\n", r_rank);
  
     l_tot /= testTotal;
     l3_tot /= testTotal;
