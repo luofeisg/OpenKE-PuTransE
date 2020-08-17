@@ -88,6 +88,8 @@ class Tester(object):
         hit3 = self.lib.getTestLinkHit3(type_constrain)
         hit1 = self.lib.getTestLinkHit1(type_constrain)
         print (hit10)
+
+        # Scores from filtered setting
         return mrr, mr, hit10, hit3, hit1
 
     def get_best_threshlod(self, score, ans):
@@ -111,19 +113,21 @@ class Tester(object):
                 threshlod = score
         return threshlod, res_mx
 
-    def run_triple_classification(self, threshlod = None):
+    def run_triple_classification(self, threshlod = None, data_iterator = None):
         self.lib.initTest()
-        self.data_loader.set_sampling_mode('classification')
         score = []
         ans = []
-        training_range = tqdm(self.data_loader)
+        if data_iterator == None:
+            self.data_loader.set_sampling_mode('classification')
+            data_iterator = self.data_loader
+        training_range = tqdm(data_iterator)
         for index, [pos_ins, neg_ins] in enumerate(training_range):
             res_pos = self.test_one_step(pos_ins)
             ans = ans + [1 for i in range(len(res_pos))]
             score.append(res_pos)
 
             res_neg = self.test_one_step(neg_ins)
-            ans = ans + [0 for i in range(len(res_pos))]
+            ans = ans + [0 for i in range(len(res_neg))]
             score.append(res_neg)
 
         score = np.concatenate(score, axis = -1)
@@ -141,6 +145,7 @@ class Tester(object):
         total_true = np.sum(ans)
         total_false = total_all - total_true
 
+        acc = 0
         for index, [ans, score] in enumerate(res):
             if score > threshlod:
                 acc = (2 * total_current + total_false - index) / total_all

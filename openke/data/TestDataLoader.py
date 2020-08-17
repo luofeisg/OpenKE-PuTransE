@@ -26,11 +26,11 @@ class TestDataSampler(object):
 
 class TestDataLoader(object):
 
-    def __init__(self, in_path="./", sampling_mode='link', random_seed=4, mode='test', training_setting="static"):
+    def __init__(self, in_path="./", sampling_mode='link', random_seed=4, mode='test', setting="static"):
         base_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../release/Base.so"))
         self.lib = ctypes.cdll.LoadLibrary(base_file)
         # print("Random_seed for TestDataLoader: {}".format(self.lib.getRandomSeed()))
-        self.training_setting = training_setting
+        self.setting = setting
         self.mode = mode
         if self.mode == 'test':
             """for link prediction"""
@@ -83,7 +83,7 @@ class TestDataLoader(object):
         self.lib.setRandomSeed(self.random_seed)
         self.lib.randReset()
 
-        if self.training_setting == "static":
+        if self.setting == "static":
             # delegated importTrainFiles execution to python because corruption process in sampling for triple classification
             # accesses training data structures in order to filter negative examples that did not occurred in train data
             self.lib.importTrainFiles() # Only necessary if we evaluate without creating a TrainDataLoader object before

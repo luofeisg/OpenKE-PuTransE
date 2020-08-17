@@ -29,7 +29,7 @@ class IncrementalTrainDataLoader(TrainDataLoader):
         self.lib.initializeTrainingOperations(snapshot_idx)
         self.lib.evolveTrainList()
 
-        # update trainTotal and batchsize
+        # Update trainTotal and batchsize
         self.tripleTotal = self.lib.getTrainTotal()
         self.batch_size = self.tripleTotal // self.nbatches
         self.nbatches = self.tripleTotal // self.batch_size
