@@ -44,7 +44,7 @@ if __name__ == '__main__':
     embedding_method = TransE
 
     PuTransE = Parallel_Universe_Config(
-        training_identifier='',
+        training_identifier='PuTransE_WN18',
         train_dataloader=train_dataloader,
         test_dataloader=test_dataloader,
         initial_num_universes=5000,
@@ -60,12 +60,11 @@ if __name__ == '__main__':
         max_balance=0.5,
         embedding_model=embedding_method,
         embedding_model_param=param_dict,
-        checkpoint_dir="./checkpoint/",
+        checkpoint_dir="../checkpoint/",
         valid_steps=100,
-        save_steps=1000,
+        save_steps=10000,
         training_setting="static",
         incremental_strategy=None)
-
 
     PuTransE.train_parallel_universes(10000)
     PuTransE.run_link_prediction()
