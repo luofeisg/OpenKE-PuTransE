@@ -41,13 +41,13 @@ if __name__ == '__main__':
 
     embedding_method = TransH
 
-    PuTransE = Parallel_Universe_Config(
-        training_identifier='PuTransE_WN18',
+    PuTransH = Parallel_Universe_Config(
+        training_identifier='PuTransH_WN18',
         train_dataloader=train_dataloader,
         test_dataloader=test_dataloader,
         initial_num_universes=5000,
         min_margin=1,
-        max_margin=10,
+        max_margin=4,
         min_lr=0.001,
         max_lr=0.1,
         min_num_epochs=50,
@@ -64,5 +64,5 @@ if __name__ == '__main__':
         training_setting="static",
         incremental_strategy=None)
 
-    PuTransE.train_parallel_universes(6000)
-    PuTransE.run_link_prediction()
+    PuTransH.train_parallel_universes(6000)
+    PuTransH.run_link_prediction()
