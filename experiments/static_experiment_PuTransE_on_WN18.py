@@ -8,7 +8,7 @@ sys.path.append(str(openke_path))
 from openke.config import Parallel_Universe_Config
 from openke.data import TrainDataLoader, TestDataLoader
 from openke.module.model import TransE, TransH
-
+import torch
 
 if __name__ == '__main__':
     # Initialize random seed to make experiments reproducable
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     # Set parameters for model used in the Parallel Universe Config (in this case TransE)
     param_dict = {
-        'dim': 20,
+        'dim': 50,
         'p_norm': 1,
         'norm_flag': 1
     }
@@ -48,8 +48,8 @@ if __name__ == '__main__':
         test_dataloader=test_dataloader,
         initial_num_universes=5000,
         min_margin=1,
-        max_margin=10,
-        min_lr=0.001,
+        max_margin=4,
+        min_lr=0.01,
         max_lr=0.1,
         min_num_epochs=50,
         max_num_epochs=200,
@@ -59,11 +59,11 @@ if __name__ == '__main__':
         max_balance=0.5,
         embedding_model=embedding_method,
         embedding_model_param=param_dict,
-        checkpoint_dir="./checkpoint/",
+        checkpoint_dir="../checkpoint/",
         valid_steps=100,
-        save_steps=1000,
+        save_steps=10000,
         training_setting="static",
         incremental_strategy=None)
 
-    PuTransE.train_parallel_universes(10000)
+    PuTransE.train_parallel_universes(6000)
     PuTransE.run_link_prediction()
