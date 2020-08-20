@@ -90,19 +90,21 @@ class Parallel_Universe_Config(Tester):
         self.checkpoint_dir = checkpoint_dir
 
         """ Eval """
-        self.missing_embedding_handling = missing_embedding_handling # ["last_rank" | "null_vector" i.e. max of f(h,r,0) or f(0,r,t)]
+        self.missing_embedding_handling = missing_embedding_handling  # ["last_rank" | "null_vector" i.e. max of f(h,r,0) or f(0,r,t)]
 
         """ ""Valid"" """
         self.lib.validHead.argtypes = [ctypes.c_void_p, ctypes.c_int64]
         self.lib.validTail.argtypes = [ctypes.c_void_p, ctypes.c_int64]
         self.lib.getValidHit10.restype = ctypes.c_float
 
-        self.valid_dataloader = valid_dataloader if valid_dataloader != None else TestDataLoader(train_dataloader.in_path,
-                                                                                         sampling_mode="link",
-                                                                                         mode='valid')
+        self.valid_dataloader = valid_dataloader if valid_dataloader != None else TestDataLoader(
+            train_dataloader.in_path,
+            sampling_mode="link",
+            mode='valid')
 
         self.valid_steps = valid_steps
         self.early_stopping_patience = early_stopping_patience
+        self.early_stopping_patience_const = early_stopping_patience
         self.bad_counts = 0
         self.best_hit10 = 0
         self.best_state = None
@@ -159,6 +161,10 @@ class Parallel_Universe_Config(Tester):
             score = self.global_energy_estimation(valid_tail_batch)
             self.lib.validTail(score.__array_interface__["data"][0], index)
         return self.lib.getValidHit10()
+
+    def reset_valid_variables(self):
+        self.early_stopping_patience = self.early_stopping_patience_const
+        self.bad_counts = 0
 
     def process_universe_mappings(self):
         entity_remapping, relation_remapping = self.train_dataloader.get_universe_mappings()
@@ -232,9 +238,9 @@ class Parallel_Universe_Config(Tester):
     def save_model(self, filename=None):
         save_directory = self.checkpoint_dir
         if not filename:
-            filename = "Pu{}_learned_spaces-{}_{}.ckpt".format( self.embedding_model.__name__,
-                                                          self.next_universe_id,
-                                                          self.training_identifier)
+            filename = "Pu{}_learned_spaces-{}_{}.ckpt".format(self.embedding_model.__name__,
+                                                               self.next_universe_id,
+                                                               self.training_identifier)
         file_directory = "{}{}".format(save_directory, filename)
         self.save_parameters(os.path.join(file_directory))
 
@@ -249,48 +255,31 @@ class Parallel_Universe_Config(Tester):
         # best_state.evaluation_tail2rel_tuple_score_dict = None
 
         state = {
-            "trained_embedding_spaces" : deepcopy(self.trained_embedding_spaces),
+            "trained_embedding_spaces": deepcopy(self.trained_embedding_spaces),
+            "next_universe_id": self.next_universe_id,
+            "entity_id_mappings": deepcopy(self.entity_id_mappings),
+            "relation_id_mappings": deepcopy(self.relation_id_mappings),
 
-            "entity_id_mappings" : deepcopy(self.entity_id_mappings),
-            "relation_id_mappings" : deepcopy(self.relation_id_mappings),
-
-            "entity_universes" : deepcopy(self.entity_universes),
-            "relation_universes" : deepcopy(self.relation_universes),
+            "entity_universes": deepcopy(self.entity_universes),
+            "relation_universes": deepcopy(self.relation_universes),
         }
         return state
 
-    def return_best_state(self):
-        best_model = Parallel_Universe_Config(
-        training_identifier=self.training_identifier,
-        train_dataloader=self.train_dataloader,
-        test_dataloader=self.data_loader,
-        initial_num_universes=self.initial_num_universes,
-        min_margin=self.min_margin,
-        max_margin=self.max_margin,
-        min_lr=self.min_lr,
-        max_lr=self.max_lr,
-        min_num_epochs=self.min_num_epochs,
-        max_num_epochs=self.max_num_epochs,
-        min_triple_constraint=self.min_triple_constraint,
-        max_triple_constraint=self.max_triple_constraint,
-        min_balance=self.min_balance,
-        max_balance=self.max_balance,
-        embedding_model=self.embedding_model,
-        embedding_model_param=self.embedding_model_param,
-        checkpoint_dir=self.checkpoint_dir,
-        valid_steps=self.valid_steps,
-        save_steps=self.save_steps,
-        training_setting=self.training_setting,
-        incremental_strategy=self.incremental_strategy)
-
+    def get_best_state(self):
         if self.best_state:
-            best_model.trained_embedding_spaces = self.best_state["trained_embedding_spaces"]
-            best_model.entity_id_mappings = self.best_state["entity_id_mappings"]
-            best_model.relation_id_mappings = self.best_state["relation_id_mappings"]
-            best_model.entity_universes = self.best_state["entity_universes"]
-            best_model.relation_universes = self.best_state["relation_universes"]
+            print("Get best state...")
+            print("switch {} with {} trained embedding spaces.".format(len(self.trained_embedding_spaces), len(self.best_state["trained_embedding_spaces"])))
+            self.trained_embedding_spaces = self.best_state["trained_embedding_spaces"]
 
-            return best_model
+            self.entity_id_mappings = self.best_state["entity_id_mappings"]
+            self.relation_id_mappings = self.best_state["relation_id_mappings"]
+            self.entity_universes = self.best_state["entity_universes"]
+            self.relation_universes = self.best_state["relation_universes"]
+
+            print("Trained {} universes but switch to best state with {} trained universes.".format(self.next_universe_id, self.best_state["next_universe_id"]))
+            self.next_universe_id = self.best_state["next_universe_id"]
+
+            return self
 
         else:
             return -1
@@ -311,9 +300,8 @@ class Parallel_Universe_Config(Tester):
                     self.best_hit10 = hit10
                     print("Best model | hit@10 of valid set is %f" % self.best_hit10)
                     print('Save model at universe %d.' % self.next_universe_id)
-                    self.save_model("Best_model_Pu{}_learned_spaces-{}_{}.ckpt".format(self.embedding_model.__name__,
-                                                          self.next_universe_id,
-                                                          self.training_identifier))
+                    self.save_model("Best_model_Pu{}_{}.ckpt".format(self.embedding_model.__name__,
+                                                                     self.training_identifier))
                     self.bad_counts = 0
                     self.save_best_state()
                 else:
@@ -352,10 +340,14 @@ class Parallel_Universe_Config(Tester):
         return embedding_space._calc(head_embedding, tail_embedding, rel_embedding, mode)
 
     def predict_tuple(self, ent_id, rel_id, mode):
-        tuple_score = float("inf")
-
         # Calculate f(h,r) if mode == "tail_batch" else Calculate f(r,t)
         embedding_space_ids = self.gather_embedding_spaces(ent_id, rel_id)
+
+        # If incremental is to deprecate spaces of deleted triplpes then exclude them from global energy estimation
+        if self.training_setting == "incremental" and self.incremental_strategy == "deprecate":
+            embedding_space_ids = embedding_space_ids - self.deprecated_embeddingspaces
+
+        tuple_score = float("inf")
         for embedding_space_id in embedding_space_ids:
             embedding_space = self.trained_embedding_spaces[embedding_space_id]
 
@@ -370,10 +362,13 @@ class Parallel_Universe_Config(Tester):
 
         return tuple_score
 
-
     def predict_triple(self, head_id, rel_id, tail_id, mode='normal'):
         # Gather embedding spaces in which the triple is hold
         embedding_space_ids = self.gather_embedding_spaces(head_id, rel_id, tail_id)
+
+        # If incremental is to deprecate spaces of deleted triplpes then exclude them from global energy estimation
+        if self.training_setting == "incremental" and self.incremental_strategy == "deprecate":
+            embedding_space_ids = embedding_space_ids - self.deprecated_embeddingspaces
 
         # Iterate through spaces and get collect the max energy score
         min_energy_score = float("inf")
@@ -388,30 +383,17 @@ class Parallel_Universe_Config(Tester):
             local_rel_id = to_tensor(local_rel_id, self.use_gpu)
 
             energy_score = embedding_space.predict(
-                {'batch_h': local_head_id,
-                 'batch_t': local_tail_id,
-                 'batch_r': local_rel_id,
-                 'mode': mode
+                {"batch_h": to_tensor(local_head_id, use_gpu=self.use_gpu),
+                 "batch_t": to_tensor(local_tail_id, use_gpu=self.use_gpu),
+                 "batch_r": to_tensor(local_rel_id, use_gpu=self.use_gpu),
+                 "mode": mode
                  }
             )
 
             if energy_score < min_energy_score:
                 min_energy_score = energy_score
 
-        # In case no embedding space could be found for the triple we calculate two tuple scores,
-        # i.e. (h,r) and (r,t) and use the higher score of them to discriminate missing values
-        if min_energy_score == float("inf") and self.missing_embedding_handling == "null_vector":
-            tuple_score_head_rel = self.predict_tuple(head_id, rel_id, mode="tail_batch")
-            tuple_score_rel_tail = self.predict_tuple(tail_id, rel_id, mode="head_batch")
-
-            if tuple_score_head_rel > tuple_score_rel_tail:
-                min_energy_score = tuple_score_head_rel
-            else:
-                min_energy_score = tuple_score_rel_tail
-
         return min_energy_score
-
-
 
     def transmit_max_scores(self, data, embedding_space_mapping, scores):
         mode = data['mode']
@@ -510,36 +492,34 @@ class Parallel_Universe_Config(Tester):
         )
         # iterate through dict and score tensor (index of both is equal) and transmit scores with comparison to energy_scores
         self.transmit_max_scores(data, embedding_space_mapping, embedding_space_scores)
+        self.transmit_tuple_max_score(data, universe_id)
 
-        if self.missing_embedding_handling == 'null_vector':
-            self.transmit_tuple_max_score(data, universe_id)
+    def reset_evaluation_helpers(self):
+        self.current_validated_universes = 0
+        self.current_tested_universes = 0
 
     def eval_universes(self, eval_mode):
+        # Dependent on mode load validation or test data
         eval_dataloader = self.data_loader if eval_mode == 'test' else self.valid_dataloader
         evaluation_range = tqdm(eval_dataloader)
 
+        # Set range to obtain local energy scores from
         current_evaluated_universes = self.current_tested_universes if eval_mode == 'test' else self.current_validated_universes
+        eval_embeddingspaces = [i for i in range(current_evaluated_universes, self.next_universe_id)]
 
-        eval_embeddingspaces = None
-        if self.training_setting == "incremental":
-            # Reset triple and tuple scores because train and valid data changes along snapshots
-            self.evaluation_head2tail_triple_score_dict.clear()
-            self.evaluation_tail2head_triple_score_dict.clear()
-            self.evaluation_head2rel_tuple_score_dict.clear()
-            self.evaluation_tail2rel_tuple_score_dict.clear()
+        # If strategy is "deprecate", deprecate embedding spaces in which deleted triples occur by restricting
+        # evaluation range
+        if self.incremental_strategy == "deprecate":
+            self.determine_deprecated_embedding_spaces()
+            eval_embeddingspaces = [embedding_space for embedding_space in range(0, self.next_universe_id)
+                                    if embedding_space not in self.deprecated_embeddingspaces]
 
-            eval_embeddingspaces = range(0, self.next_universe_id)
-
-            # If strategy is "deprecate", deprecate embedding spaces in which deleted triples occur by restricting
-            # evaluation range
-            if self.incremental_strategy == "deprecate":
-                self.determine_deprecated_embedding_spaces()
-                eval_embeddingspaces = [embedding_space for embedding_space in range(0, self.next_universe_id)
-                                        if embedding_space not in self.deprecated_embeddingspaces]
-
-
-        elif self.training_setting == "static":
-            eval_embeddingspaces = range(current_evaluated_universes, self.next_universe_id)
+        print("Global energy estimation.")
+        print("- Mode: {}".format(eval_mode))
+        print("- Training type: {}".format(self.training_setting))
+        print("- Incremental optimization strategy : {}".format(self.incremental_strategy))
+        print("- Universe range to obtain local energies: ({} -> {})".format(min(eval_embeddingspaces),
+                                                                             max(eval_embeddingspaces)))
 
         for index, [data_head, data_tail] in enumerate(evaluation_range):
             head = data_tail['batch_h'][0]
@@ -671,7 +651,20 @@ class Parallel_Universe_Config(Tester):
             num_of_scores = batch_h.size
             score = np.zeros(shape=num_of_scores, dtype=np.float32)
             for index in range(num_of_scores):
-                score[index] = self.predict_triple(batch_h[index], batch_r[index], batch_t[index], mode)
+                head, tail, rel = batch_h[index], batch_r[index], batch_t[index]
+                score = self.predict_triple(head, rel, tail, mode)
+                # In case no embedding space could be found for the triple we calculate two tuple scores,
+                # i.e. (h,r) and (r,t) and use the higher score of them to discriminate missing values
+                if score == float("inf") and self.missing_embedding_handling == "null_vector":
+                    tuple_score_head_rel = self.predict_tuple(head, rel, mode="tail_batch")
+                    tuple_score_rel_tail = self.predict_tuple(tail, rel, mode="head_batch")
+
+                    if tuple_score_head_rel < tuple_score_rel_tail:
+                        score = tuple_score_head_rel
+                    else:
+                        score = tuple_score_rel_tail
+
+                score[index] = score
 
         return score
 
@@ -695,79 +688,74 @@ class Parallel_Universe_Config(Tester):
     # method of the OpenKE framework
     def tc_datastructure_adapter(self, pos_h, pos_t, pos_r, neg_h, neg_t, neg_r):
         return [({
-                'batch_h': pos_h if pos_h else np.empty(0, dtype=np.int64) ,
-                'batch_t': pos_t if pos_t else np.empty(0, dtype=np.int64) ,
-                'batch_r': pos_r if pos_r else np.empty(0, dtype=np.int64) ,
-                "mode": "normal"
-            },
-            {
-                'batch_h': neg_h if neg_h else np.empty(0, dtype=np.int64) ,
-                'batch_t': neg_t if neg_t else np.empty(0, dtype=np.int64) ,
-                'batch_r': neg_r if neg_r else np.empty(0, dtype=np.int64) ,
-                "mode": "normal"
-            })]
+                     'batch_h': pos_h if pos_h else np.empty(0, dtype=np.int64),
+                     'batch_t': pos_t if pos_t else np.empty(0, dtype=np.int64),
+                     'batch_r': pos_r if pos_r else np.empty(0, dtype=np.int64),
+                     "mode": "normal"
+                 },
+                 {
+                     'batch_h': neg_h if neg_h else np.empty(0, dtype=np.int64),
+                     'batch_t': neg_t if neg_t else np.empty(0, dtype=np.int64),
+                     'batch_r': neg_r if neg_r else np.empty(0, dtype=np.int64),
+                     "mode": "normal"
+                 })]
+
+    def load_triple_classification_file(self, file):
+        pos_h = []
+        pos_t = []
+        pos_r = []
+        neg_h = []
+        neg_t = []
+        neg_r = []
+
+        with file.open(mode="rt", encoding="UTF-8") as f:
+            for line in f:
+                head, tail, rel, truth_value = line.split()
+
+                if truth_value == 1:
+                    pos_h.append(head)
+                    pos_t.append(tail)
+                    pos_r.append(rel)
+
+                elif truth_value == 0:
+                    neg_h.append(head)
+                    neg_t.append(tail)
+                    neg_r.append(rel)
+
+        return pos_h, pos_t, pos_r, neg_h, neg_t, neg_r
 
     def run_classification_of_deleted_triples(self, snapshot_idx, threshlod):
         # Load negative examples of snapshot
-
         snapshot_folder = Path(self.data_loader.in_path) / "incremental" / str(snapshot_idx)
         negative_example_files = [file for file in snapshot_folder.iterdir() if file.name.startswith("tc_")]
-
         for file in negative_example_files:
-            pos_h = []
-            pos_t = []
-            pos_r = []
-            neg_h = []
-            neg_t = []
-            neg_r = []
+            pos_h, pos_t, pos_r, neg_h, neg_t, neg_r = self.load_triple_classification_file(file)
 
-            with file.open(mode="rt", encoding="utf-8") as f:
-                for line in f:
-                    head, tail, rel, truth_value = line.split()
-
-                    if truth_value == 1:
-                        pos_h.append(head)
-                        pos_t.append(tail)
-                        pos_r.append(rel)
-
-                    elif truth_value == 0:
-                        neg_h.append(head)
-                        neg_t.append(tail)
-                        neg_r.append(rel)
-
-            data_tc = self.tc_datastructure_adapter(pos_h, pos_t, pos_r, neg_h, neg_t, neg_r)
-            acc, threshlod = super().run_triple_classification(threshlod, data_iterator=data_tc)
+            tc_data = self.tc_datastructure_adapter(pos_h, pos_t, pos_r, neg_h, neg_t, neg_r)
+            acc, _ = super().run_triple_classification(threshlod, data_iterator=tc_data)
             print("Accuracy for {} is: {}".format(file.name, acc))
 
 
+    def run_triple_classification_from_files(self, snapshot):
+        # Load basic test examples of snapshot
+        snapshot_folder = Path(self.data_loader.in_path) / "incremental" / str(snapshot)
+        triple_classification_file = snapshot_folder / "tc_basic_procedure_test_examples.txt"
 
+        pos_h, pos_t, pos_r, neg_h, neg_t, neg_r = self.load_triple_classification_file(triple_classification_file)
 
-    # def forward(self, data: dict):
-    #     batch_h = data['batch_h']
-    #     batch_t = data['batch_t']
-    #     batch_r = data['batch_r']
-    #     mode = data['mode']
-    #
-    #     if mode == 'head_batch' or mode == 'tail_batch':
-    #         score = self.global_energy_estimation(data)
-    #
-    #     elif mode == 'normal':
-    #         num_of_scores = batch_h.size()[0]
-    #         score = torch.zeros(num_of_scores)
-    #         for index in range(num_of_scores):
-    #             score[index] = self.predict_triple(batch_h[index], batch_r[index], batch_t[index], mode)
-    #
-    #     return score
+        tc_data = self.tc_datastructure_adapter(pos_h, pos_t, pos_r, neg_h, neg_t, neg_r)
+        acc, threshlod = super().run_triple_classification(data_iterator=tc_data)
+        print("Accuracy for {} is: {}".format(triple_classification_file.name, acc))
+        print("Determined threshold: {}".format(threshlod))
 
-    # def predict(self, data: dict):
-    #     score = self.forward(data)
-    #     return score
+        print("Run negative triple classification...")
+        self.run_classification_of_deleted_triples(snapshot, threshlod)
 
     def determine_deprecated_embedding_spaces(self):
         self.deprecated_embeddingspaces.clear()
-        for triple in self.train_dataloader.deleted_triple_set():
+        for triple in self.train_dataloader.deleted_triple_set:
             head, tail, rel = triple
-            embedding_space_ids_set = self.gather_embedding_spaces(head, rel, tail)
+            embedding_space_ids_set = self.gather_embedding_spaces(int(head), int(rel), int(tail))
             self.deprecated_embeddingspaces.update(embedding_space_ids_set)
 
     def extend_parallel_universe(self, ParallelUniverse_inst):
@@ -822,14 +810,16 @@ class Parallel_Universe_Config(Tester):
 
                       'best_hit10': self.best_hit10,
                       'bad_counts': self.bad_counts,
-
-                      'current_tested_universes': self.current_tested_universes,
-                      'current_validated_universes': self.current_validated_universes,
-                      'evaluation_head2tail_triple_score_dict': self.evaluation_head2tail_triple_score_dict,
-                      'evaluation_tail2head_triple_score_dict': self.evaluation_tail2head_triple_score_dict,
-                      'evaluation_head2rel_tuple_score_dict': self.evaluation_head2rel_tuple_score_dict,
-                      'evaluation_tail2rel_tuple_score_dict': self.evaluation_tail2rel_tuple_score_dict,
                       }
+
+        if self.training_setting == "static":
+            eval_universes_dict = {'current_tested_universes': self.current_tested_universes,
+            'current_validated_universes': self.current_validated_universes,
+            'evaluation_head2tail_triple_score_dict': self.evaluation_head2tail_triple_score_dict,
+            'evaluation_tail2head_triple_score_dict': self.evaluation_tail2head_triple_score_dict,
+            'evaluation_head2rel_tuple_score_dict': self.evaluation_head2rel_tuple_score_dict,
+            'evaluation_tail2rel_tuple_score_dict': self.evaluation_tail2rel_tuple_score_dict}
+            state_dict.update(eval_universes_dict)
 
         return state_dict
 
@@ -864,7 +854,7 @@ class Parallel_Universe_Config(Tester):
             self.best_hit10 = state_dict['best_hit10']
             self.bad_counts = state_dict['bad_counts']
 
-        if 'current_tested_universes' in state_dict:
+        if '' in state_dict:
             self.current_tested_universes = state_dict['current_tested_universes']
             self.current_validated_universes = state_dict['current_validated_universes']
             self.evaluation_head2tail_triple_score_dict = state_dict['evaluation_head2tail_triple_score_dict']
