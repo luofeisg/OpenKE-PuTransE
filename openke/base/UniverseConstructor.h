@@ -69,10 +69,14 @@ void BidirectionalRandomWalk(std::set<INT> entity_set) {
     INT universe_index = 0;
     INT num_round = 0;
     INT current_entity = -1;
+    INT gathered_triples = 0;
 
     INT last_duplicate_entity = -1;
     INT iter_duplicate_gathering_tolerance = 5;
     bool duplicate = false;
+    
+    INT iter_triple_set_not_increasing_tolerance = 20;
+    INT last_triple_set_size = 0;
 
     std::set<INT> new_starting_points;
     std::set<INT> universe_entities;
@@ -128,6 +132,7 @@ void BidirectionalRandomWalk(std::set<INT> entity_set) {
             trainListUniverse[universe_index].h = new_head;
             trainListUniverse[universe_index].r = new_rel;
             trainListUniverse[universe_index].t = new_tail;
+            gathered_triples += 1;
 
             new_starting_points.insert(new_starting_entity);
             universe_entities.insert(new_tail);
@@ -140,6 +145,21 @@ void BidirectionalRandomWalk(std::set<INT> entity_set) {
         }
         entity_set.swap(new_starting_points);
         num_round++;
+
+        // Check if triple set still grows
+        if(universe_index == last_triple_set_size){
+            iter_triple_set_not_increasing_tolerance--;
+        } else {
+            last_triple_set_size = universe_index;
+            iter_triple_set_not_increasing_tolerance = 20;
+        }
+
+        if (iter_triple_set_not_increasing_tolerance == 0) {
+            trainTotalUniverse = universe_index;
+            printf("Stopped Bidirectional Walk as it stucked.\n");
+            printf("New number of triples in universe %ld.\n", universe_index);
+            break;
+        }
     }
     // set number of entities and relations in universe
     entityTotalUniverse = universe_entities.size();
