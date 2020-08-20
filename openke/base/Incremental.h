@@ -206,6 +206,7 @@ void resetSnapShot() {
         KnowledgeGraphOperations = NULL;
         totalOperations = 0;
         next_operation_id = 0;
+        numOperationsRate = 0;
         lastOperationFinished = false;
     }
 }
@@ -265,7 +266,7 @@ void loadValidData(int snapshot) {
     
     validTotal = getLineNum(fin);
     validList = (Triple *) calloc(validTotal, sizeof(Triple));
-    for (INT i = 0; i < testTotal; i++) {
+    for (INT i = 0; i < validTotal; i++) {
         tmp = fscanf(fin, "%ld", &validList[i].h);
         tmp = fscanf(fin, "%ld", &validList[i].t);
         tmp = fscanf(fin, "%ld", &validList[i].r);
@@ -315,6 +316,7 @@ void initializeTripleOperations(int snapshot) {
     printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/triple-op2id.txt").c_str());
     
     totalOperations = getLineNum(fin);
+    printf("Captured %ld triple operations in snapshot %d.\n", totalOperations, snapshot);
     KnowledgeGraphOperations = (TripleOperation *) calloc(totalOperations, sizeof(TripleOperation));
     for (INT i = 0; i < totalOperations; i++) {
         tmp = fscanf(fin, "%ld", &KnowledgeGraphOperations[i].triple.h);
@@ -323,7 +325,7 @@ void initializeTripleOperations(int snapshot) {
         tmp = fscanf(fin, "%s", &KnowledgeGraphOperations[i].operation);
     }
     fclose(fin);
-    
+    printf("Finished loading KG operations.\n");
 }
 
 // Checks if entity ent exists in tripleList
@@ -442,46 +444,31 @@ bool checkIfTrainEntityDeleted(INT entity){
 }
 
 void adjustEntitySet(INT ent){
-    // add entity to set of all entities which have once added to the KG
-    // all_entities.insert(entity);
-    // entityTotal = all_entities.size();
-    
-    if(checkIfEntityIsNew(ent)){
-        createArrayEntry(all_entities, num_all_entities, ent);
-        if (ent>maxEntity)
-            maxEntity = ent;
+    // If entity exists in KG return else entity is either new or was deleted before
+    if(checkIfEntityExists(ent)){
+        return;
+    } else {
+        if(checkIfEntityIsNew(ent)){
+            createArrayEntry(all_entities, num_all_entities, ent);
+        }else{
+            deleteArrayEntry(deleted_entities, num_deleted_entities, ent);
+        }   
+        createArrayEntry(currently_contained_entities, num_currently_contained_entities, ent); 
     }
-
-    // check if added entity existed before
-    if(!checkIfEntityExists(ent))
-        // Add entity ent to currently contained entities
-        createArrayEntry(currently_contained_entities, num_currently_contained_entities, ent);
-
-    // check if added entity was deleted before
-    if(checkIfEntityDeleted(ent))
-        // Remove entity ent from array of previously deleted entities
-        deleteArrayEntry(deleted_entities, num_deleted_entities, ent);
 }
 
 void adjustTrainEntitySet(INT ent){
-    // add entity to set of all entities which have once added to the KG
-    // all_entities.insert(entity);
-    // entityTotal = all_entities.size();
-    if(checkIfTrainEntityIsNew(ent)){
-        createArrayEntry(all_train_entities, num_all_train_entities, ent);
-        if (ent>maxTrainEntity)
-            maxTrainEntity = ent;
-    }
-
-    // check if added entity existed before
-    if(!checkIfTrainEntityExists(ent))
-        // currently_contained_entities.insert(entity);
+    // If entity exists in KG return else entity is either new or was deleted before
+    if(checkIfTrainEntityExists(ent)){
+        return;
+    } else {
+        if(checkIfTrainEntityIsNew(ent)){
+            createArrayEntry(all_train_entities, num_all_train_entities, ent);
+        }else{
+            deleteArrayEntry(deleted_train_entities, num_deleted_train_entities, ent);
+        }   
         createArrayEntry(currently_contained_train_entities, num_currently_contained_train_entities, ent);
-
-    // check if added entity was deleted before
-    if(checkIfTrainEntityDeleted(ent))
-        // deleted_entities.erase(entity);
-        deleteArrayEntry(deleted_train_entities, num_deleted_train_entities, ent);
+    }
 }
 
 bool checkIfRelationDeleted(INT relation){
@@ -509,46 +496,31 @@ bool checkIfTrainRelationDeleted(INT relation){
 }
 
 void adjustRelationSet(INT rel){
-    // add relation to set of all relations which have once added to the KG
-    // all_relations.insert(relation);
-    // relationTotal = all_relations.size();
-    if(checkIfRelationIsNew(rel)){
-        createArrayEntry(all_relations, num_all_relations, rel);
-        if (rel>maxRelation)
-            maxRelation = rel;
-    }
-
-    // check if added relation exists
-    if(!checkIfRelationExists(rel))
-        // currently_contained_relations.insert(relation);
+    // If relation exists in KG return else relation is either new or was deleted before
+    if(checkIfRelationExists(rel)){
+        return;
+    } else {
+        if(checkIfRelationIsNew(rel)){
+            createArrayEntry(all_relations, num_all_relations, rel);
+        }else{
+            deleteArrayEntry(deleted_relations, num_deleted_relations, rel);
+        }   
         createArrayEntry(currently_contained_relations, num_currently_contained_relations, rel);
-
-    // check if relation was deleted once
-    if(checkIfRelationDeleted(rel))
-        // deleted_relations.erase(relation);
-        deleteArrayEntry(deleted_relations, num_deleted_relations, rel);
+    }
 }
 
 void adjustTrainRelationSet(INT rel){
-    // add relation to set of all relations which have once added to the KG
-    // all_relations.insert(relation);
-    // relationTotal = all_relations.size();
-    if(checkIfTrainRelationsIsNew(rel)){
-        createArrayEntry(all_train_relations, num_all_train_relations, rel);
-        if (rel>maxTrainRelation)
-            maxTrainRelation = rel;
-
-    }
-        
-    // check if added relation exists
-    if(!checkIfTrainRelationExists(rel))
-        // currently_contained_relations.insert(relation);
+    // If relation exists in KG return else relation is either new or was deleted before
+    if(checkIfTrainRelationExists(rel)){
+        return;
+    } else {
+        if(checkIfTrainRelationsIsNew(rel)){
+            createArrayEntry(all_train_relations, num_all_train_relations, rel);
+        }else{
+            deleteArrayEntry(deleted_train_relations, num_deleted_train_relations, rel);
+        }   
         createArrayEntry(currently_contained_train_relations, num_currently_contained_train_relations, rel);
-
-    // check if relation was deleted once
-    if(checkIfTrainRelationDeleted(rel))
-        // deleted_relations.erase(relation);
-        deleteArrayEntry(deleted_train_relations, num_deleted_train_relations, rel);
+    }
 }
 
 void insertTriple(Triple trip) {
@@ -851,6 +823,7 @@ void evolveTrainList() {
         right_mean
     );
 
+    printf("Currently contained train triples: %ld.\n", trainTotal);
 }
 
 extern "C"
@@ -858,13 +831,8 @@ void evolveTripleList() {
     INT operation = 0;
     if (numOperationsRate == 0)
         numOperationsRate = totalOperations;
+        
     while(operation < numOperationsRate){
-        if(next_operation_id == totalOperations){
-            lastOperationFinished = true;
-            printf("Reached snapshot.\n");
-            break;
-        }
-
         if(KnowledgeGraphOperations[next_operation_id].operation == '+')
             insertTriple(KnowledgeGraphOperations[next_operation_id].triple);
         
@@ -879,6 +847,7 @@ void evolveTripleList() {
     printf("Currently contained entities: %ld.\n", getNumCurrentlyContainedEntities());
     printf("Currently deleted entities: %ld.\n", num_deleted_entities);
     printf("All entities: %ld.\n", num_all_entities);
+    printf("Currently contained triples: %ld.\n", tripleTotal);
 }
 
 
