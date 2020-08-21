@@ -282,7 +282,7 @@ class Parallel_Universe_Config(Tester):
             return self
 
         else:
-            return -1
+            return self
 
     def train_parallel_universes(self, num_of_embedding_spaces):
         for universe_id in range(num_of_embedding_spaces):
@@ -652,19 +652,19 @@ class Parallel_Universe_Config(Tester):
             score = np.zeros(shape=num_of_scores, dtype=np.float32)
             for index in range(num_of_scores):
                 head, tail, rel = batch_h[index], batch_r[index], batch_t[index]
-                score = self.predict_triple(head, rel, tail, mode)
+                global_energy_score = self.predict_triple(head, rel, tail, mode)
                 # In case no embedding space could be found for the triple we calculate two tuple scores,
                 # i.e. (h,r) and (r,t) and use the higher score of them to discriminate missing values
-                if score == float("inf") and self.missing_embedding_handling == "null_vector":
+                if global_energy_score == float("inf") and self.missing_embedding_handling == "null_vector":
                     tuple_score_head_rel = self.predict_tuple(head, rel, mode="tail_batch")
                     tuple_score_rel_tail = self.predict_tuple(tail, rel, mode="head_batch")
 
                     if tuple_score_head_rel < tuple_score_rel_tail:
-                        score = tuple_score_head_rel
+                        global_energy_score = tuple_score_head_rel
                     else:
-                        score = tuple_score_rel_tail
+                        global_energy_score = tuple_score_rel_tail
 
-                score[index] = score
+                score[index] = global_energy_score
 
         return score
 
@@ -688,15 +688,15 @@ class Parallel_Universe_Config(Tester):
     # method of the OpenKE framework
     def tc_datastructure_adapter(self, pos_h, pos_t, pos_r, neg_h, neg_t, neg_r):
         return [({
-                     'batch_h': pos_h if pos_h else np.empty(0, dtype=np.int64),
-                     'batch_t': pos_t if pos_t else np.empty(0, dtype=np.int64),
-                     'batch_r': pos_r if pos_r else np.empty(0, dtype=np.int64),
+                     'batch_h': np.asarray(pos_h, dtype=np.int64) if pos_h else np.empty(0, dtype=np.int64),
+                     'batch_t': np.asarray(pos_t, dtype=np.int64) if pos_t else np.empty(0, dtype=np.int64),
+                     'batch_r': np.asarray(pos_r, dtype=np.int64) if pos_r else np.empty(0, dtype=np.int64),
                      "mode": "normal"
                  },
                  {
-                     'batch_h': neg_h if neg_h else np.empty(0, dtype=np.int64),
-                     'batch_t': neg_t if neg_t else np.empty(0, dtype=np.int64),
-                     'batch_r': neg_r if neg_r else np.empty(0, dtype=np.int64),
+                     'batch_h': np.asarray(neg_h, dtype=np.int64) if neg_h else np.empty(0, dtype=np.int64),
+                     'batch_t': np.asarray(neg_t, dtype=np.int64) if neg_t else np.empty(0, dtype=np.int64),
+                     'batch_r': np.asarray(neg_r, dtype=np.int64) if neg_r else np.empty(0, dtype=np.int64),
                      "mode": "normal"
                  })]
 
@@ -712,15 +712,15 @@ class Parallel_Universe_Config(Tester):
             for line in f:
                 head, tail, rel, truth_value = line.split()
 
-                if truth_value == 1:
-                    pos_h.append(head)
-                    pos_t.append(tail)
-                    pos_r.append(rel)
+                if truth_value == "1":
+                    pos_h.append(int(head))
+                    pos_t.append(int(tail))
+                    pos_r.append(int(rel))
 
-                elif truth_value == 0:
-                    neg_h.append(head)
-                    neg_t.append(tail)
-                    neg_r.append(rel)
+                elif truth_value == "0":
+                    neg_h.append(int(head))
+                    neg_t.append(int(tail))
+                    neg_r.append(int(rel))
 
         return pos_h, pos_t, pos_r, neg_h, neg_t, neg_r
 
@@ -739,7 +739,7 @@ class Parallel_Universe_Config(Tester):
     def run_triple_classification_from_files(self, snapshot):
         # Load basic test examples of snapshot
         snapshot_folder = Path(self.data_loader.in_path) / "incremental" / str(snapshot)
-        triple_classification_file = snapshot_folder / "tc_basic_procedure_test_examples.txt"
+        triple_classification_file = snapshot_folder / "triple_classification_prepared_test_examples.txt"
 
         pos_h, pos_t, pos_r, neg_h, neg_t, neg_r = self.load_triple_classification_file(triple_classification_file)
 
