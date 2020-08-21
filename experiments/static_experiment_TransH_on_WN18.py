@@ -208,7 +208,7 @@ def main():
     print("-----------------------------")
     print("Best experiment was {} with hyper params:\n".format(best_exp))
     print(best_hyper_param)
-    best_trained_model.save_checkpoint('../checkpoint/transe_{}_optimal_model.ckpt'.format(dataset_name))
+    best_trained_model.save_checkpoint('../checkpoint/{}_{}_optimal_model.ckpt'.format(model.__name__, dataset_name))
 
 
 if __name__ == '__main__':
