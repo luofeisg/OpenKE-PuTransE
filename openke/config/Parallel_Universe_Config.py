@@ -164,6 +164,7 @@ class Parallel_Universe_Config(Tester):
 
     def reset_valid_variables(self):
         self.early_stopping_patience = self.early_stopping_patience_const
+        self.best_state = {}
         self.bad_counts = 0
 
     def process_universe_mappings(self):
@@ -279,10 +280,7 @@ class Parallel_Universe_Config(Tester):
             print("Trained {} universes but switch to best state with {} trained universes.".format(self.next_universe_id, self.best_state["next_universe_id"]))
             self.next_universe_id = self.best_state["next_universe_id"]
 
-            return self
-
-        else:
-            return self
+        return self
 
     def train_parallel_universes(self, num_of_embedding_spaces):
         for universe_id in range(num_of_embedding_spaces):
@@ -296,6 +294,7 @@ class Parallel_Universe_Config(Tester):
                 print("Universe %d has finished, validating..." % (self.next_universe_id - 1))
                 self.eval_universes(eval_mode='valid')
                 hit10 = self.valid()
+                print("Current hit@10: {}".format(hit10))
                 if hit10 > self.best_hit10:
                     self.best_hit10 = hit10
                     print("Best model | hit@10 of valid set is %f" % self.best_hit10)
@@ -312,6 +311,7 @@ class Parallel_Universe_Config(Tester):
                     self.bad_counts += 1
                 if self.bad_counts == self.early_stopping_patience:
                     print("Early stopping at universe {}".format(self.next_universe_id - 1))
+                    self.get_best_state()
                     break
 
             if self.save_steps and self.checkpoint_dir and (universe_id + 1) % self.save_steps == 0:
