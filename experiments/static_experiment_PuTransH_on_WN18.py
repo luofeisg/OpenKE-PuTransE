@@ -32,7 +32,7 @@ if __name__ == '__main__':
     # test_dataloader = TestDataLoader(train_dataloader.in_path, "link")
     test_dataloader = TestDataLoader(train_dataloader.in_path, "link")
 
-    # Set parameters for model used in the Parallel Universe Config (in this case TransE)
+    # Set parameters for model used in the Parallel Universe Config (in this case TransH)
     param_dict = {
         'dim': 20,
         'p_norm': 1,
