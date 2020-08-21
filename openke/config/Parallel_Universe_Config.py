@@ -220,8 +220,10 @@ class Parallel_Universe_Config(Tester):
         print('--- epochs: %d' % train_times)
         print('--- learning rate:', lr)
         print('--- margin: %d' % margin)
-        print('--- norm: %d' % self.embedding_model_param['p_norm'])
-        print('--- dimensions: %d' % self.embedding_model_param['dim'])
+        if "p_norm" in self.embedding_model_param:
+            print('--- norm: %d' % self.embedding_model_param['p_norm'])
+        if "dim" in self.embedding_model_param:
+            print('--- dimensions: %d' % self.embedding_model_param['dim'])
 
         # Train embedding space
         self.train_dataloader.swap_helpers()
