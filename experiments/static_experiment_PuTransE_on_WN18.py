@@ -46,7 +46,7 @@ if __name__ == '__main__':
         training_identifier='PuTransE_WN18',
         train_dataloader=train_dataloader,
         test_dataloader=test_dataloader,
-        initial_num_universes=5000,
+        initial_num_universes=None,
         min_margin=1,
         max_margin=4,
         min_lr=0.001,
