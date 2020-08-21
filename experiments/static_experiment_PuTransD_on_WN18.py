@@ -19,7 +19,7 @@ if __name__ == '__main__':
     # Initialize TrainDataLoader for sampling of examples
     train_dataloader = TrainDataLoader(
         in_path="../benchmarks/WN18/",
-        nbatches=20,
+        nbatches=10,
         threads=8,
         sampling_mode="normal",
         bern_flag=0,
@@ -58,7 +58,7 @@ if __name__ == '__main__':
         embedding_model=embedding_method,
         embedding_model_param=param_dict,
         checkpoint_dir="../checkpoint/",
-        valid_steps=1,
+        valid_steps=100,
         save_steps=10000,
         training_setting="static",
         incremental_strategy=None)
