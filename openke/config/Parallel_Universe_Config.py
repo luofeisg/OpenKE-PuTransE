@@ -304,7 +304,7 @@ class Parallel_Universe_Config(Tester):
                     self.save_model("Best_model_Pu{}_{}.ckpt".format(self.embedding_model.__name__,
                                                                      self.training_identifier))
                     self.bad_counts = 0
-                    self.save_best_state()
+                    # self.save_best_state()
                 else:
                     print(
                         "Hit@10 of valid set is %f | bad count is %d"
