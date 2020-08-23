@@ -248,7 +248,8 @@ void loadTestData(int snapshot) {
         tmp = fscanf(fin, "%ld", &testList[i].r);
     }
     fclose(fin);
-    
+
+    printf("Number of test triples in snapshot: %ld", testTotal);
 }
 
 extern "C"
@@ -272,7 +273,8 @@ void loadValidData(int snapshot) {
         tmp = fscanf(fin, "%ld", &validList[i].r);
     }
     fclose(fin);
-    
+
+    printf("Number of valid triples in snapshot: %ld", validTotal);   
 }
 
 // Read out all training operations
