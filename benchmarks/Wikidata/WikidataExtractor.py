@@ -203,7 +203,7 @@ def get_redirect_dict():
     redirects_log_folder = Path.cwd() / 'redirects'
     redir_dict = {}
 
-    print("Load redirects from {} at {}.".format(redirects_log_folder, datetime.now().strftime("%H:%M:%S")))
+    print("Load redirects from {} at {}.".format(redirects_log_folder, datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
     if redirects_log_folder.exists():
         for redirect_file_log in redirects_log_folder.iterdir():
             with bz2.open(redirect_file_log, "rt", encoding="UTF-8") as f:
@@ -211,7 +211,7 @@ def get_redirect_dict():
                     source_item_id, target_item_id = line.split()
                     redir_dict[source_item_id] = target_item_id
 
-    print("Finished loading redirects at {}.".format(datetime.now().strftime("%H:%M:%S")))
+    print("Finished loading redirects at {}.".format(datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
     print("Counted {} redirects.".format(len(redir_dict)))
     return redir_dict
 
@@ -296,7 +296,7 @@ def get_triple_operations_list(revision_file):
 
 def extract_revision_folders_triple_operations(rev_folder):
     print(
-        "Extract triple operations from folder {} at {}.".format(rev_folder.name, datetime.now().strftime("%H:%M:%S")))
+        "Extract triple operations from folder {} at {}.".format(rev_folder.name, datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
     item_revision_file_list = [file for file in rev_folder.iterdir() if
                                file.is_file() and not file.name.startswith("redirected_")]
     for item_revision_file in item_revision_file_list:
@@ -608,10 +608,10 @@ def get_truthy_claims_list(item_dict):
 
 
 def process_xml_dump(file):
-    print("Started processing file {} at {}.".format(file.name, datetime.now().strftime("%H:%M:%S")))
+    print("Started processing file {} at {}.".format(file.name, datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
     # with DecompressingTextIOWrapper(file, encoding="UTF-8", progress_bar=True) as xmlf:
     with bz2.open(file, "rt", encoding="UTF-8") as xmlf:
-        print(datetime.now().strftime("%H:%M:%S"))
+        print(datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 
         item_id = None
         revision_id = None
@@ -697,7 +697,7 @@ def process_xml_dump(file):
                 redir_target_item_id = None
                 redir_item_id = None
 
-        print(datetime.now().strftime("%H:%M:%S"))
+        print(datetime.now().strftime('%Y-%m-%dT%H:%M:%S'))
 
 
 # def download_and_process_xml_dump(file_download_dict):
@@ -1205,9 +1205,9 @@ def main2():
     filters = {"filtered_entities": read_filter_file(filter_path / "entities_filtered_by_LaCroix_et_al_2020"),
                "filtered_relations": read_filter_file(filter_path / "predicates_filtered_by_LaCroix_et_al_2020")}
 
-    print("Start compilation of triple operations at {}.".format(datetime.now().strftime("%H:%M:%S")))
+    print("Start compilation of triple operations at {}.".format(datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
     compile_triple_operations_v1(num_cores_granted, filters=filters, resolve_redir=True)
-    print("Finish at {}.".format(datetime.now().strftime("%H:%M:%S")))
+    print("Finish at {}.".format(datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
     print("Sort and save triple operations.")
     sort_filtered_triple_operations_v1(input_file_name="compiled_triple_operations_directly_filtered.txt.bz2",
