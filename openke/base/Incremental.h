@@ -283,13 +283,10 @@ void initializeTrainingOperations(int snapshot) {
     resetSnapShot();
     printf("Import snapshot: %d.\n", snapshot);
     
-    printf("Test\n");
     std::string snapshot_folder = int_to_string(snapshot);
-    printf("Test1\n");
     FILE *fin;
     int tmp;
 
-    printf("Test2\n");
     printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/train-op2id.txt").c_str());
     fin = fopen((inPath + "incremental/" + snapshot_folder + "/train-op2id.txt").c_str(), "r");
     
