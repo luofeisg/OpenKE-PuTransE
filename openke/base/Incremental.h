@@ -283,8 +283,9 @@ void initializeTrainingOperations(int snapshot) {
     resetSnapShot();
     printf("Import snapshot: %d.\n", snapshot);
     
-    std::string snapshot_folder = int_to_string(snapshot);
     printf("Test\n");
+    std::string snapshot_folder = int_to_string(snapshot);
+    printf("Test1\n");
     FILE *fin;
     int tmp;
 
