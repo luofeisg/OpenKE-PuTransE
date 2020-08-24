@@ -13,8 +13,8 @@ class IncrementalTestDataLoader(TestDataLoader):
     def initialize_incremental_loading(self):
         # Constant variables along all snapshots
         self.lib.activateIncrementalSetting()
-        self.lib.readGlobalNumEntities()
-        self.lib.readGlobalNumRelations()
+        # self.lib.readGlobalNumEntities()
+        # self.lib.readGlobalNumRelations()
         self.entTotal = self.lib.getEntityTotal()
         self.relTotal = self.lib.getRelationTotal()
         self.lib.setNumSnapshots(self.num_snapshots)
