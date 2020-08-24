@@ -6,7 +6,6 @@ openke_path = Path.cwd().parents[0]
 print(openke_path)
 sys.path.append(str(openke_path))
 
-
 # OpenKE modules
 import openke
 from openke.module.model import TransE
@@ -18,16 +17,18 @@ from copy import deepcopy
 
 
 def get_hyper_param_permutations(transe_hyper_param_dict):
-    permutated_hyperparam_dict = [{"norm" : norm, "margin": margin, "learning_rate" : lr, "dimension": dim}
-           for norm in transe_hyper_param_dict["norm"]
-           for margin in transe_hyper_param_dict["margin"]
-           for lr in transe_hyper_param_dict["learning_rate"]
-           for dim in transe_hyper_param_dict["dimension"]
-           ]
+    permutated_hyperparam_dict = [{"norm": norm, "margin": margin, "learning_rate": lr, "dimension": dim}
+                                  for norm in transe_hyper_param_dict["norm"]
+                                  for margin in transe_hyper_param_dict["margin"]
+                                  for lr in transe_hyper_param_dict["learning_rate"]
+                                  for dim in transe_hyper_param_dict["dimension"]
+                                  ]
 
     return permutated_hyperparam_dict
 
-def train_TransE(hyper_param_dict, dataset_name, dataset_path):
+
+def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path, valid_steps, early_stop_patience,
+                 max_epochs):
     init_random_seed = 4
     print("Initial random seed is:", init_random_seed)
 
@@ -36,6 +37,12 @@ def train_TransE(hyper_param_dict, dataset_name, dataset_path):
     margin = hyper_param_dict["margin"]
     lr = hyper_param_dict["learning_rate"]
     dim = hyper_param_dict["dimension"]
+
+    print("Train with:")
+    print("norm: {}".format(norm))
+    print("margin: {}".format(margin))
+    print("learning_rate: {}".format(lr))
+    print("dimension: {}".format(dim))
 
     # (1) Initialize TrainDataLoader for sampling of examples
     train_dataloader = TrainDataLoader(
@@ -69,8 +76,8 @@ def train_TransE(hyper_param_dict, dataset_name, dataset_path):
     validator = Validator(model=transe, data_loader=valid_dl)
 
     # -- Validation params
-    valid_steps = 100
-    early_stopping_patience = 10
+    valid_steps = valid_steps
+    early_stopping_patience = early_stop_patience
     bad_counts = 0
     best_hit10 = 0
     bad_count_limit_reached = False
@@ -83,12 +90,15 @@ def train_TransE(hyper_param_dict, dataset_name, dataset_path):
     trained_epochs = 0
 
     # while(early_stopping_patience !=0):
-    while (not bad_count_limit_reached):
+    while not bad_count_limit_reached and trained_epochs < max_epochs:
         trainer.run()
         trained_epochs += valid_steps
 
         # Validation
+        # TEST
         hit10 = validator.valid()
+        # hit10 = 2 * trained_epochs * experiment_index
+
         print("hits@10 is: {}.".format(hit10))
         if hit10 > best_hit10:
             best_hit10 = hit10
@@ -96,23 +106,24 @@ def train_TransE(hyper_param_dict, dataset_name, dataset_path):
             print('Save model at epoch %d.' % trained_epochs)
             best_model = deepcopy(transe)
             transe.save_checkpoint(
-                '../checkpoint/transe_{}_epoch{}.ckpt'.format(dataset_name, trained_epochs))
+                '../checkpoint/transe_{}_exp{}.ckpt'.format(dataset_name, experiment_index))
             bad_counts = 0
         else:
+            bad_counts += 1
             print(
                 "Hit@10 of valid set is %f | bad count is %d"
                 % (hit10, bad_counts)
             )
-            bad_counts += 1
+
         if bad_counts == early_stopping_patience:
             bad_count_limit_reached = True
-            print("Early stopping at epoch {}".format(trained_epochs))
+            print("----> Early stopping at epoch {}".format(trained_epochs))
             break
 
     return best_model
 
+
 def test_model(model, dataset_path):
-    # -- Validator
     test_dataloader = TestDataLoader(dataset_path, "link", mode='test')
     tester = Tester(model=model, data_loader=test_dataloader, use_gpu=torch.cuda.is_available())
 
@@ -125,7 +136,59 @@ def test_model(model, dataset_path):
 
     return mr, acc
 
-def grid_search_TransE(dataset_path, dataset_name):
+
+def grid_search_TransE(transe_hyper_param_dict, dataset_name, dataset_path, valid_steps=100, early_stop_patience=4,
+                       max_epochs=1000, mean_rank_lower_threshold=float("-inf")):
+    valid_steps = valid_steps
+    early_stop_patience = early_stop_patience
+
+    best_mr = float("inf")
+    best_acc = float("-inf")
+    best_trained_model = None
+    best_hyper_param = None
+    best_experiment = None
+
+    hyper_param_perm_dict = get_hyper_param_permutations(transe_hyper_param_dict)
+    for experiment_index, dicct in enumerate(hyper_param_perm_dict):
+        print("Start Experiment {}".format(experiment_index))
+        print("- with hyper params")
+        print(dicct)
+
+        trained_model = train_TransE(dicct, dataset_name, experiment_index, dataset_path, valid_steps,
+                                     early_stop_patience, max_epochs)
+        mr, acc = test_model(trained_model, dataset_path)
+
+        print("Mean Rank: {}".format(mr))
+        print("Accuracy: {}".format(acc))
+        print("-----------------------------")
+        if mr < best_mr:
+            best_trained_model = trained_model
+            best_mr = mr
+            best_hyper_param = dicct
+            best_experiment = experiment_index
+
+            print("Best Mean Rank: {}".format(mr))
+            print("For hyper params: {}".format(best_hyper_param))
+            print("-----------------------------")
+
+            if best_mr < mean_rank_lower_threshold:
+                break
+
+    return best_trained_model, best_hyper_param, best_experiment
+
+
+def main():
+    dataset_path = "../benchmarks/Wikidata/WikidataEvolve/static/"
+    dataset_name = "WikidataEvolve"
+    num_snapshots = 4
+
+    best_trained_model = None
+    best_hyper_param = None
+
+    valid_steps = 50
+    early_stop_patience = 4
+    max_epochs = 1000
+
     # Define hyper param ranges
     transe_hyper_param_dict = {}
     transe_hyper_param_dict["norm"] = [1, 2]
@@ -133,62 +196,38 @@ def grid_search_TransE(dataset_path, dataset_name):
     transe_hyper_param_dict["dimension"] = [20, 50, 100]
     transe_hyper_param_dict["learning_rate"] = [0.1, 0.01, 0.001]
 
-    best_mr = float("inf")
-    best_acc = float("-inf")
-    best_trained_model = None
-    best_hyper_param = None
-
-    hyper_param_perm_dict = get_hyper_param_permutations(transe_hyper_param_dict)
-    for dicct in hyper_param_perm_dict:
-
-        trained_model = train_TransE(dicct, dataset_name, dataset_path)
-        mr, acc = test_model(trained_model, dataset_path)
-
-        print("Mean Rank: {}".format(mr))
-        print("Accuracy: {}".format(acc))
-
-        if mr < best_mr:
-            best_trained_model = trained_model
-            best_mr = mr
-            best_hyper_param = dicct
-
-            print("Best Mean Rank: {}".format(mr))
-            print("For hyperparams: {}".format(best_hyper_param))
-
-    return best_trained_model, best_hyper_param
-
-
-def main():
-    dataset_path = "../benchmarks/Wikidata/datasets/static/"
-    dataset_name = "Wikidata"
-    num_snapshots = 5
-
-    best_trained_model = None
-    best_hyper_param = None
-
     for snapshot in range(1, num_snapshots + 1):
-        dataset_path_first_snapshot = dataset_path + "/{}/".format(snapshot)
+        dataset_snapshot_path = dataset_path + "{}/".format(snapshot)
+        print("=====")
+        print(" Start snapshot {}\n".format(snapshot))
 
         if snapshot == 1:
             # Grid search in first Snapshot. We adopt the hyper param for the subsequent snapshots
-            best_trained_model, best_hyper_param = grid_search_TransE(dataset_path_first_snapshot, dataset_name)
-            print("Save trained model of snapshot 1...")
-            best_trained_model.save('../checkpoint/static_experiment_on_Wikidata_first_snap_transe.ckpt'.format(dataset_name))
+            best_trained_model, best_hyper_param, best_experiment = grid_search_TransE(transe_hyper_param_dict,
+                                                                                       dataset_name,
+                                                                                       dataset_snapshot_path,
+                                                                                       valid_steps=100,
+                                                                                       early_stop_patience=4,
+                                                                                       max_epochs=max_epochs)
 
-            print("Best hyperparams are:")
+            print("-----------------------------")
+            print("Best experiment was {} with hyper params:\n".format(best_experiment))
             print(best_hyper_param)
+            best_trained_model.save_checkpoint(
+                '../evaluation_framework_checkpoint/transe_{}_optimal_model_snap1.ckpt'.format(dataset_name))
 
         elif snapshot > 1:
-            trained_model = train_TransE(best_hyper_param, dataset_name, dataset_path)
-            mr, acc = test_model(trained_model, dataset_path)
+            trained_model = train_TransE(best_hyper_param,
+                                         dataset_name,
+                                         0,
+                                         dataset_snapshot_path,
+                                         valid_steps,
+                                         early_stop_patience,
+                                         max_epochs)
+
+            mr, acc = test_model(trained_model, dataset_snapshot_path)
             print("Mean Rank for snapshot {}: {}".format(snapshot, mr))
             print("Accuracy for snapshot {}: {}".format(snapshot, acc))
-
-
-
-    print("Save best model with hyper params:\n")
-    print(best_hyper_param)
-    best_trained_model.save('../checkpoint/transe_{}.ckpt'.format(dataset_name))
 
 if __name__ == '__main__':
     main()
