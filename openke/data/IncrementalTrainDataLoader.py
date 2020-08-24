@@ -1,5 +1,6 @@
 from openke.data import TrainDataLoader
 from pathlib import Path
+import ctypes
 
 class IncrementalTrainDataLoader(TrainDataLoader):
     def __init__(self, in_path="./benchmarks/Wikidata/datasets/incremental", batch_size=None, nbatches=None, threads=8,
@@ -12,6 +13,10 @@ class IncrementalTrainDataLoader(TrainDataLoader):
                                                          filter_flag=filter_flag, neg_ent=neg_ent, neg_rel=neg_rel,
                                                          random_seed=random_seed,
                                                          incremental_setting=incremental_setting)
+
+        self.lib.initializeTrainingOperations.argtypes = [ctypes.c_int64]
+        self.lib.setNumSnapshots.argtypes = [ctypes.c_int64]
+
         self.num_snapshots = num_snapshots
         self.initialize_incremental_loading()
         self.deleted_triple_set = set()

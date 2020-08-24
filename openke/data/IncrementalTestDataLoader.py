@@ -1,5 +1,6 @@
 from openke.data import TestDataLoader
 import numpy as np
+import ctypes
 
 class IncrementalTestDataLoader(TestDataLoader):
     def __init__(self, in_path="./benchmarks/Wikidata/datasets/incremental", sampling_mode='link', random_seed=4,
@@ -7,6 +8,10 @@ class IncrementalTestDataLoader(TestDataLoader):
         super(IncrementalTestDataLoader, self).__init__(in_path=in_path, sampling_mode=sampling_mode,
                                                         random_seed=random_seed, mode=mode,
                                                         setting=setting)
+        self.lib.initializeTripleOperations.argtypes = [ctypes.c_int64]
+        self.lib.loadTestData.argtypes = [ctypes.c_int64]
+        self.lib.loadValidData.argtypes = [ctypes.c_int64]
+
         self.num_snapshots = num_snapshots
         self.initialize_incremental_loading()
 
