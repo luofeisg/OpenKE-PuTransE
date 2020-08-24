@@ -1,78 +1,51 @@
+"/Users/rlafraie/Library/Mobile Documents/com~apple~CloudDocs/Documents/Masterarbeit/KnowledgeGraphEmbedding/Code.nosync/OpenKE/rlafraie_venv/bin/python" "/Users/rlafraie/Library/Mobile Documents/com~apple~CloudDocs/Documents/Masterarbeit/KnowledgeGraphEmbedding/Code.nosync/OpenKE/benchmarks/Wikidata/Configure_wikidata_evolve_datasets.py"
+Begin compilation of experimental datasets at 01:42:39.
+Set random seed: 2861992
 Basic statistics: global number of entities: 59416.
 Basic statistics: global number of relations: 227.
-
-
-Snapshot 1: number of train triples (static dataset): 305631.
-Snapshot 1: number of valid triples (static dataset): 16979.
-Snapshot 1: number of test triples (static dataset): 16980.
-Snapshot 1: number of entities: 35837.
-Snapshot 1: number of relations: 121.
-
-Snapshot 2: number of train triples (static dataset): 433482.
-Snapshot 2: number of valid triples (static dataset): 24081.
-Snapshot 2: number of test triples (static dataset): 24082.
-Snapshot 2: number of entities: 42883.
-Snapshot 2: number of relations: 156.
-
-Snapshot 3: number of train triples (static dataset): 538113.
-Snapshot 3: number of valid triples (static dataset): 29898.
-Snapshot 3: number of test triples (static dataset): 29893.
-Snapshot 3: number of entities: 50576.
-Snapshot 3: number of relations: 201.
-
-Snapshot 4: number of train triples (static dataset): 668305.
-Snapshot 4: number of valid triples (static dataset): 37124.
-Snapshot 4: number of test triples (static dataset): 37119.
-Snapshot 4: number of entities: 59383.
-Snapshot 4: number of relations: 227.
-
-
+Snapshot 1: number of validation triples: 16979.
+Snapshot 1: number of test triples: 16980.
+Snapshot 2: number of validation triples: 24096.
+Snapshot 2: number of test triples: 24066.
+Snapshot 3: number of validation triples: 29893.
+Snapshot 3: number of test triples: 29885.
+Snapshot 4: number of validation triples: 37138.
+Snapshot 4: number of test triples: 37083.
 Snapshot 1: number of train triples (pseudo-incremental dataset): 305631.
 Snapshot 2: number of train triples (pseudo-incremental dataset): 135144.
-Snapshot 3: number of train triples (pseudo-incremental dataset): 114912.
-Snapshot 4: number of train triples (pseudo-incremental dataset): 148459.
-
-
-
+Snapshot 3: number of train triples (pseudo-incremental dataset): 114911.
+Snapshot 4: number of train triples (pseudo-incremental dataset): 148464.
 Snapshot 1: number of train triple operations (incremental dataset): 305631.
 -- number of insert operations (incremental dataset): 305631.
 -- number of delete operations (incremental dataset): 0.
-
-Snapshot 2: number of train triple operations (incremental dataset): 142437.
+Snapshot 2: number of train triple operations (incremental dataset): 142436.
 -- number of insert operations (incremental dataset): 135144.
--- number of delete operations (incremental dataset): 7293.
-
-Snapshot 3: number of train triple operations (incremental dataset): 125193.
--- number of insert operations (incremental dataset): 114912.
--- number of delete operations (incremental dataset): 10281.
-
-Snapshot 4: number of train triple operations (incremental dataset): 166726.
--- number of insert operations (incremental dataset): 148459.
--- number of delete operations (incremental dataset): 18267.
-
-
-
+-- number of delete operations (incremental dataset): 7292.
+Snapshot 3: number of train triple operations (incremental dataset): 125179.
+-- number of insert operations (incremental dataset): 114911.
+-- number of delete operations (incremental dataset): 10268.
+Snapshot 4: number of train triple operations (incremental dataset): 166727.
+-- number of insert operations (incremental dataset): 148464.
+-- number of delete operations (incremental dataset): 18263.
 Snapshot 1.
 -- Deleted train triples: 0.
 -- Positive oscillating train triples: 0.
 -- Negative oscillating train triples: 0.
 
 Snapshot 2.
--- Deleted train triples: 7293.
+-- Deleted train triples: 7292.
 -- Positive oscillating train triples: 0.
 -- Negative oscillating train triples: 0.
 
 Snapshot 3.
--- Deleted train triples: 17131.
--- Positive oscillating train triples: 443.
+-- Deleted train triples: 17118.
+-- Positive oscillating train triples: 442.
 -- Negative oscillating train triples: 0.
 
 Snapshot 4.
--- Deleted train triples: 33702.
--- Positive oscillating train triples: 1901.
--- Negative oscillating train triples: 119.
-
-
+-- Deleted train triples: 33678.
+-- Positive oscillating train triples: 1903.
+-- Negative oscillating train triples: 121.
 
 Snapshot 1.
 -- Deleted valid triples: 0.
@@ -80,21 +53,19 @@ Snapshot 1.
 -- Negative oscillating valid triples: 0.
 
 Snapshot 2.
--- Deleted valid triples: 406.
+-- Deleted valid triples: 391.
 -- Positive oscillating valid triples: 0.
 -- Negative oscillating valid triples: 0.
 
 Snapshot 3.
--- Deleted valid triples: 948.
--- Positive oscillating valid triples: 30.
+-- Deleted valid triples: 953.
+-- Positive oscillating valid triples: 21.
 -- Negative oscillating valid triples: 0.
 
 Snapshot 4.
--- Deleted valid triples: 1875.
--- Positive oscillating valid triples: 111.
+-- Deleted valid triples: 1861.
+-- Positive oscillating valid triples: 108.
 -- Negative oscillating valid triples: 7.
-
-
 
 Snapshot 1.
 -- Deleted test triples: 0.
@@ -102,16 +73,42 @@ Snapshot 1.
 -- Negative oscillating test triples: 0.
 
 Snapshot 2.
--- Deleted test triples: 407.
+-- Deleted test triples: 423.
 -- Positive oscillating test triples: 0.
 -- Negative oscillating test triples: 0.
 
 Snapshot 3.
--- Deleted test triples: 956.
--- Positive oscillating test triples: 23.
+-- Deleted test triples: 964.
+-- Positive oscillating test triples: 33.
 -- Negative oscillating test triples: 0.
 
 Snapshot 4.
--- Deleted test triples: 1882.
--- Positive oscillating test triples: 102.
--- Negative oscillating test triples: 9.
+-- Deleted test triples: 1920.
+-- Positive oscillating test triples: 103.
+-- Negative oscillating test triples: 7.
+
+Snapshot 1: number of 2 triples (static dataset): 305631.
+Snapshot 1: number of 2 triples (static dataset): 16979.
+Snapshot 1: number of 2 triples (static dataset): 16980.
+Snapshot 1: number of entities: 35837.
+Snapshot 1: number of relations: 121.
+Snapshot 2: number of 2 triples (static dataset): 433483.
+Snapshot 2: number of 2 triples (static dataset): 24096.
+Snapshot 2: number of 2 triples (static dataset): 24066.
+Snapshot 2: number of entities: 42883.
+Snapshot 2: number of relations: 156.
+Snapshot 3: number of 2 triples (static dataset): 538126.
+Snapshot 3: number of 2 triples (static dataset): 29893.
+Snapshot 3: number of 2 triples (static dataset): 29885.
+Snapshot 3: number of entities: 50576.
+Snapshot 3: number of relations: 201.
+Snapshot 4: number of 2 triples (static dataset): 668327.
+Snapshot 4: number of 2 triples (static dataset): 37138.
+Snapshot 4: number of 2 triples (static dataset): 37083.
+Snapshot 4: number of entities: 59383.
+Snapshot 4: number of relations: 227.
+-------------------------------------------------------------------------
+Start gathering of persistent-negative examples for triple classification
+Entities included in triple corruption process: 59416.
+100%|██████████| 18241/18241 [00:00<00:00, 285492.58it/s]
+Finished compilation process at 01:44:30.
