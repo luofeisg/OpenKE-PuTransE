@@ -12,9 +12,9 @@ bool isEqual(const char *string1, const char *string2) {
 
 std::string int_to_string(int num){
     std::string str = "";
-    char int_buffer[1];
+    char int_buffer[12];
     sprintf(int_buffer, "%d", num);
-    for (INT i = 0; i < strlen(int_buffer); i++)
+    for (INT i = 0; i < 1; i++)
 		 str = str + int_buffer[i];
     
     return str;
