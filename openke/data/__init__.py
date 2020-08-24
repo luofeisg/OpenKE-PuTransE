@@ -3,13 +3,15 @@ from __future__ import division
 from __future__ import print_function
 
 from .TrainDataLoader import TrainDataLoader
-from .IncrementalTrainDataLoader import IncrementalTrainDataLoader
-from .UniverseTrainDataLoader import UniverseTrainDataLoader
 from .TestDataLoader import TestDataLoader
+from .IncrementalTrainDataLoader import IncrementalTrainDataLoader
+from .IncrementalTestDataLoader import IncrementalTestDataLoader
+from .UniverseTrainDataLoader import UniverseTrainDataLoader
 
 __all__ = [
 	'TrainDataLoader',
 	'UniverseTrainDataLoader',
 	'TestDataLoader',
-	'IncrementalTrainDataLoader'
+	'IncrementalTrainDataLoader',
+	'IncrementalTestDataLoader'
 ]
