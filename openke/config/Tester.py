@@ -92,6 +92,31 @@ class Tester(object):
         # Scores from filtered setting
         return mrr, mr, hit10, hit3, hit1
 
+    def determine_classification_cross_table_values(self, res, threshold):
+        true_positive = 0
+        true_negative = 0
+        false_positive = 0
+        false_negative = 0
+
+        for [ans, score] in res:
+            predicted_value = 1 if score <= threshold else 0
+            if predicted_value == 1 and ans == 1:
+                true_positive += 1
+
+            elif predicted_value == 1 and ans == 0:
+                false_positive += 1
+
+            elif predicted_value == 0 and ans == 0:
+                true_negative += 1
+
+            elif predicted_value == 0 and ans == 1:
+                false_negative += 1
+
+        print("True Positives :{}".format(true_positive))
+        print("True Negatives :{}".format(true_negative))
+        print("False Positives :{}".format(false_positive))
+        print("False Negatives :{}".format(false_negative))
+
     def get_best_threshlod(self, score, ans):
         res = np.concatenate([ans.reshape(-1,1), score.reshape(-1,1)], axis = -1)
         order = np.argsort(score)
@@ -152,5 +177,6 @@ class Tester(object):
                 break
             elif ans == 1:
                 total_current += 1.0
-
+        # Determine Classification Cross Tables values
+        self.determine_classification_cross_table_values(res, threshlod)
         return acc, threshlod

@@ -43,7 +43,7 @@ class IncrementalTrainDataLoader(TrainDataLoader):
         with open(triple_operations_file, mode="rt", encoding="utf-8") as f:
             for line in f:
                 head, tail, rel, op_type = line.split()
-                triple = (int(head), int(tail), int(rel))
+                triple = (head, tail, rel)
                 if op_type == "-":
                     self.deleted_triple_set.add(triple)
                 elif op_type == "+":

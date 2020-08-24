@@ -116,11 +116,11 @@ class Parallel_Universe_Config(Tester):
         self.evaluation_tail2head_triple_score_dict = {}
         self.evaluation_head2rel_tuple_score_dict = {}
         self.evaluation_tail2rel_tuple_score_dict = {}
-        self.default_scores = [float("inf") for i in range(self.ent_tot)]
+        self.default_scores = [float("inf")] * self.ent_tot
 
         self.training_setting = training_setting  # ["incremental" | "static"]
         self.incremental_strategy = incremental_strategy  # ["normal" | "deprecate"]
-        if self.training_setting == "incremental" and self.incremental_strategy == "deprecate":
+        if self.training_setting == "incremental":
             self.deprecated_embeddingspaces = set()
 
     def get_default_value_list(self):
@@ -165,6 +165,7 @@ class Parallel_Universe_Config(Tester):
     def reset_valid_variables(self):
         self.early_stopping_patience = self.early_stopping_patience_const
         self.best_state = {}
+        self.best_hit10 = 0
         self.bad_counts = 0
 
     def process_universe_mappings(self):
@@ -500,6 +501,14 @@ class Parallel_Universe_Config(Tester):
         self.current_validated_universes = 0
         self.current_tested_universes = 0
 
+        self.evaluation_head2tail_triple_score_dict.clear()
+        self.evaluation_tail2head_triple_score_dict.clear()
+        self.evaluation_head2rel_tuple_score_dict.clear()
+        self.evaluation_tail2rel_tuple_score_dict.clear()
+
+        self.incremental_strategy = "normal"
+
+
     def eval_universes(self, eval_mode):
         # Dependent on mode load validation or test data
         eval_dataloader = self.data_loader if eval_mode == 'test' else self.valid_dataloader
@@ -520,25 +529,34 @@ class Parallel_Universe_Config(Tester):
         print("- Mode: {}".format(eval_mode))
         print("- Training type: {}".format(self.training_setting))
         print("- Incremental optimization strategy : {}".format(self.incremental_strategy))
-        print("- Universe range to obtain local energies: ({} -> {})".format(min(eval_embeddingspaces),
+
+        if self.incremental_strategy == "deprecate":
+            num_deprecated_spaces = len(self.deprecated_embeddingspaces)
+            print("-- Deprecated universes: {}".format(num_deprecated_spaces))
+            print("-- ... in proportion to the total amount of universes: {}%"
+                  .format(num_deprecated_spaces / self.next_universe_id * 100))
+
+        if eval_embeddingspaces:
+            print("- Universe range to obtain local energies: ({} -> {})".format(min(eval_embeddingspaces),
                                                                              max(eval_embeddingspaces)))
+            for index, [data_head, data_tail] in enumerate(evaluation_range):
+                head = data_tail['batch_h'][0]
+                rel = data_head['batch_r'][0]
+                tail = data_head['batch_t'][0]
 
-        for index, [data_head, data_tail] in enumerate(evaluation_range):
-            head = data_tail['batch_h'][0]
-            rel = data_head['batch_r'][0]
-            tail = data_head['batch_t'][0]
+                for universe_id in eval_embeddingspaces:
+                    if (universe_id in self.entity_universes[head]) and (universe_id in self.relation_universes[rel]):
+                        self.obtain_embedding_space_score(data_tail, universe_id)
 
-            for universe_id in eval_embeddingspaces:
-                if (universe_id in self.entity_universes[head]) and (universe_id in self.relation_universes[rel]):
-                    self.obtain_embedding_space_score(data_tail, universe_id)
+                    if (universe_id in self.entity_universes[tail]) and (universe_id in self.relation_universes[rel]):
+                        self.obtain_embedding_space_score(data_head, universe_id)
 
-                if (universe_id in self.entity_universes[tail]) and (universe_id in self.relation_universes[rel]):
-                    self.obtain_embedding_space_score(data_head, universe_id)
-
-        if eval_mode == 'test':
-            self.current_tested_universes = self.next_universe_id
-        elif eval_mode == 'valid':
-            self.current_validated_universes = self.next_universe_id
+            if eval_mode == 'test':
+                self.current_tested_universes = self.next_universe_id
+            elif eval_mode == 'valid':
+                self.current_validated_universes = self.next_universe_id
+        else:
+            print("- No universes to be evaluated.")
 
     def global_energy_estimation(self, data):
         batch_h = data['batch_h']
@@ -754,7 +772,8 @@ class Parallel_Universe_Config(Tester):
         self.run_classification_of_deleted_triples(snapshot, threshlod)
 
     def determine_deprecated_embedding_spaces(self):
-        self.deprecated_embeddingspaces.clear()
+        if self.deprecated_embeddingspaces:
+            self.deprecated_embeddingspaces.clear()
         for triple in self.train_dataloader.deleted_triple_set:
             head, tail, rel = triple
             embedding_space_ids_set = self.gather_embedding_spaces(int(head), int(rel), int(tail))
@@ -868,8 +887,8 @@ class Parallel_Universe_Config(Tester):
         state_dict = self.extend_state_dict()
         torch.save(state_dict, path)
 
-    def load_parameters(self, path):
-        state_dict = torch.load(self.checkpoint_dir + path)
+    def load_parameters(self, filename):
+        state_dict = torch.load(self.checkpoint_dir + filename)
         self.process_state_dict(state_dict)
 
     def calculate_unembedded_ratio(self, mode='examine_entities'):

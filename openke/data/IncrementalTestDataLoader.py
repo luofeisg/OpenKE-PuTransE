@@ -19,10 +19,11 @@ class IncrementalTestDataLoader(TestDataLoader):
         self.relTotal = self.lib.getRelationTotal()
         self.lib.setNumSnapshots(self.num_snapshots)
 
-    def load_snapshot(self, snapshot_idx):
+    def evolveTripleList(self, snapshot_idx):
         self.lib.initializeTripleOperations(snapshot_idx)
         self.lib.evolveTripleList()
 
+    def load_snapshot(self, snapshot_idx):
         if self.mode == "test":
             self.lib.loadTestData(snapshot_idx)
             self.testTotal = self.lib.getTestTotal()
