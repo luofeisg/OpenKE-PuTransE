@@ -1,26 +1,12 @@
-from bs4 import BeautifulSoup
-import re
-from random import sample
 from pathlib import Path
-import hashlib
-# from urllib2 import urlopen # Python 2
-from urllib.request import urlopen  # Python 3
 import bz2
 import datetime
-from html import unescape
-import json
-from qwikidata.entity import WikidataItem
-from lxml import etree
-import xml.etree.cElementTree as ET
 from tqdm import tqdm
 from datetime import datetime
-from nasty_utils import DecompressingTextIOWrapper
 from collections import Counter, defaultdict
-from pprint import pprint
 import shutil
 from sklearn.model_selection import train_test_split
 import random
-import numpy as np
 import operator
 from pprint import pprint
 from random import randrange, sample
@@ -188,13 +174,13 @@ def create_global_mapping(triple_operations_divided, output_path, dataset_paths_
             out.write("{} {}\n".format(mapped_id, wikidata_id))
 
     # (2.3) Copy global entity2id and relation2id mapping to incremental and pseudo_incremental datasets
-    incr_ent2id_file = dataset_paths_dict["incremental_dataset"] / "entity2id.txt"
-    incr_rel2id_file = dataset_paths_dict["incremental_dataset"] / "relation2id.txt"
+    incr_ent2id_file = dataset_paths_dict["incremental"] / "entity2id.txt"
+    incr_rel2id_file = dataset_paths_dict["incremental"] / "relation2id.txt"
     shutil.copy(str(global_ent2id_file), str(incr_ent2id_file))
     shutil.copy(str(global_rel2id_file), str(incr_rel2id_file))
 
-    ps_ent2id_file = dataset_paths_dict["pseudo_incremental_dataset"] / "entity2id.txt"
-    ps_rel2id_file = dataset_paths_dict["pseudo_incremental_dataset"] / "relation2id.txt"
+    ps_ent2id_file = dataset_paths_dict["pseudo_incremental"] / "entity2id.txt"
+    ps_rel2id_file = dataset_paths_dict["pseudo_incremental"] / "relation2id.txt"
     shutil.copy(str(global_ent2id_file), str(ps_ent2id_file))
     shutil.copy(str(global_rel2id_file), str(ps_rel2id_file))
 
@@ -218,7 +204,7 @@ def sort_triple_ops_list(triple_ops_list):
 
 
 def create_directories(output_path, num_snaps):
-    subdir_names = ["static_dataset", "incremental_dataset", "pseudo_incremental_dataset"]
+    subdir_names = ["static", "incremental", "pseudo_incremental"]
     paths_dict = {}
 
     for name in subdir_names:
@@ -235,8 +221,8 @@ def create_directories(output_path, num_snaps):
 
 def create_pseudo_incremental_train_datasets(paths, num_snapshots):
     # (6.1) Get snapshot folders from static dataset
-    static_dataset_path = paths["static_dataset"]
-    pseudo_incremental_dataset_path = paths["pseudo_incremental_dataset"]
+    static_dataset_path = paths["static"]
+    pseudo_incremental_dataset_path = paths["pseudo_incremental"]
 
     new_triple_result_set = set()
     new_train_triple_result_set = set()
@@ -315,7 +301,7 @@ def load_snapshot_triple_set(path, snapshot, filename="global_triple2id.txt"):
 
 
 def detect_added_and_deleted_triples(paths, prev_snaphot, curr_snapshot):
-    static_path = paths["static_dataset"]
+    static_path = paths["static"]
     old_triples_set = set() if prev_snaphot == 0 else load_snapshot_triple_set(static_path, prev_snaphot)
     new_triples_set = load_snapshot_triple_set(static_path, curr_snapshot)
 
@@ -382,34 +368,33 @@ def remove_deleted_triples(deleted_triples_set, triple_sets):
 
 
 def save_train_valid_test_sets(paths, triple_sets, snapshot):
-    static_train_file = paths["static_dataset"] / "{}".format(snapshot) / "global_train2id.txt"
+    static_train_file = paths["static"] / "{}".format(snapshot) / "global_train2id.txt"
     write_to_file(file=static_train_file, triples_iterable=triple_sets["train_triples_set"])
 
-    static_test_file = paths["static_dataset"] / "{}".format(snapshot) / "global_test2id.txt"
+    static_test_file = paths["static"] / "{}".format(snapshot) / "global_test2id.txt"
     write_to_file(file=static_test_file, triples_iterable=triple_sets["test_triples_set"])
 
-    incr_test_file = paths["incremental_dataset"] / "{}".format(snapshot) / "test2id.txt"
+    incr_test_file = paths["incremental"] / "{}".format(snapshot) / "test2id.txt"
     write_to_file(file=incr_test_file, triples_iterable=triple_sets["test_triples_set"])
 
-    pseudo_incr_test_file = paths["pseudo_incremental_dataset"] / "{}".format(snapshot) / "test2id.txt"
+    pseudo_incr_test_file = paths["pseudo_incremental"] / "{}".format(snapshot) / "test2id.txt"
     write_to_file(file=pseudo_incr_test_file, triples_iterable=triple_sets["test_triples_set"])
 
-    static_valid_file = paths["static_dataset"] / "{}".format(snapshot) / "global_valid2id.txt"
+    static_valid_file = paths["static"] / "{}".format(snapshot) / "global_valid2id.txt"
     write_to_file(file=static_valid_file, triples_iterable=triple_sets["valid_triples_set"])
 
-    incr_valid_file = paths["incremental_dataset"] / "{}".format(snapshot) / "valid2id.txt"
+    incr_valid_file = paths["incremental"] / "{}".format(snapshot) / "valid2id.txt"
     write_to_file(file=incr_valid_file, triples_iterable=triple_sets["valid_triples_set"])
 
-    pseudo_incr_valid_file = paths["pseudo_incremental_dataset"] / "{}".format(snapshot) / "valid2id.txt"
+    pseudo_incr_valid_file = paths["pseudo_incremental"] / "{}".format(snapshot) / "valid2id.txt"
     write_to_file(file=pseudo_incr_valid_file, triples_iterable=triple_sets["valid_triples_set"])
 
     print("Snapshot {}: number of validation triples: {}.".format(snapshot, len(triple_sets["valid_triples_set"])))
     print("Snapshot {}: number of test triples: {}.".format(snapshot, len(triple_sets["test_triples_set"])))
 
 
-# TODO test
 def create_snapshot_entity_and_relation_mapping(paths, triple_sets, snapshot):
-    static_dataset_path = paths["static_dataset"]
+    static_dataset_path = paths["static"]
     output_path = static_dataset_path / str(snapshot)
 
     # (2) Map item and property ids of wikidata to new global entity and relation ids which we use in our datasets
@@ -503,11 +488,17 @@ def configure_train_valid_test_datasets(paths, num_snapshots):
 
 def save_negative_triple_classification_files(deleted_triples_set, positive_oscillated_triples_set,
                                               negative_oscillated_triples_set, paths, dataset, snapshot):
-    snapshot_folder = paths["incremental_dataset"] / "{}".format(snapshot)
+    snapshot_folder = paths["incremental"] / "{}".format(snapshot)
 
     deleted_triple_file = snapshot_folder / "tc_negative_deleted_{}_triples.txt".format(dataset)
     positive_oscillated_file = snapshot_folder / "tc_positive_oscillated_{}_triples.txt".format(dataset)
     negative_oscillated_file = snapshot_folder / "tc_negative_oscillated_{}_triples.txt".format(dataset)
+
+    print("Snapshot {}.".format(snapshot))
+    print("-- Deleted {} triples: {}.".format(dataset, len(deleted_triples_set)))
+    print("-- Positive oscillating {} triples: {}.".format(dataset, len(positive_oscillated_triples_set)))
+    print("-- Negative oscillating {} triples: {}.\n".format(dataset, len(negative_oscillated_triples_set)))
+
 
     if len(deleted_triples_set) > 0:
         write_to_tc_file(file=deleted_triple_file, triple_list=deleted_triples_set,
@@ -530,7 +521,7 @@ def detect_and_store_deleted_and_oscillating_triples(paths, num_snapshots, datas
     # (2)->(3) Positive Oscillated
     # (3)->(4) Negative Oscillated
     # (4)->(3) Positive Oscillated
-    static_dataset_path = paths["static_dataset"]
+    static_dataset_path = paths["static"]
 
     triples_status = {}
     deleted_triples_set = set()
@@ -540,7 +531,8 @@ def detect_and_store_deleted_and_oscillating_triples(paths, num_snapshots, datas
     old_triple_set = set()
     for snapshot in range(1, num_snapshots + 1):
         # (8.1) Load train triples from snapshot <snapshot_idx>
-        new_triple_set = load_snapshot_triple_set(static_dataset_path, snapshot, filename="{}2id.txt".format(dataset))
+        new_triple_set = load_snapshot_triple_set(static_dataset_path, snapshot,
+                                                  filename="global_{}2id.txt".format(dataset))
 
         # (8.2) Determine inserts and deletes
         inserts = new_triple_set - old_triple_set
@@ -603,7 +595,7 @@ def verify_consistency(triple_ops_list, snapshot):
 def configure_incremental_train_datasets(paths, triple_operations_divided, num_snapshots):
     old_train_triple_set = set()
 
-    static_dataset_path = paths["static_dataset"]
+    static_dataset_path = paths["static"]
     for snapshot in range(1, num_snapshots + 1):
         # Load train triples from snapshot <snapshot_idx>
         new_train_triple_set = load_snapshot_triple_set(static_dataset_path, snapshot, "global_train2id.txt")
@@ -636,7 +628,7 @@ def configure_incremental_train_datasets(paths, triple_operations_divided, num_s
             train_triple_operations)))
         print("-- number of insert operations (incremental dataset): {}.".format(len(inserted_train_triples)))
         print("-- number of delete operations (incremental dataset): {}.".format(len(deleted_train_triples)))
-        incr_triple_op2id_file = paths["incremental_dataset"] / "{}".format(snapshot) / "train-op2id.txt"
+        incr_triple_op2id_file = paths["incremental"] / "{}".format(snapshot) / "train-op2id.txt"
         with incr_triple_op2id_file.open(mode="wt", encoding="UTF-8") as output:
             for triple_op in train_triple_operations:
                 output_line = "{} {} {} {}\n".format(triple_op[0], triple_op[1], triple_op[2], triple_op[3])
@@ -657,14 +649,14 @@ def corrupt_triple(triple, mode, filter_set, entities_total):
 
 
 def save_triple_classification_file(dataset_path, snapshot, positive_examples, negative_examples):
-    output_file = dataset_path / str(snapshot) / "tc_basic_procedure_test_examples.txt"
+    output_file = dataset_path / str(snapshot) / "triple_classification_prepared_test_examples.txt"
     examples = positive_examples + negative_examples
     truthvalues = [1] * len(positive_examples) + [0] * len(negative_examples)
     write_to_tc_file(output_file, examples, truthvalues)
 
 
 def create_incremental_triple_classification_file(paths_dict, num_snapshots):
-    incremental_dataset_path = paths_dict["incremental_dataset"]
+    incremental_dataset_path = paths_dict["incremental"]
     global_entities_file = incremental_dataset_path / "entity2id.txt"
     entities_total = len(open(global_entities_file).readlines())
     print("-------------------------------------------------------------------------")
@@ -739,7 +731,7 @@ def remove_obsolet_triple_ops(triple_operations_divided):
     removed_triples = []
     new_snapshots_triple_operations = []
     for snapshot_idx, triple_operations_list in enumerate(triple_operations_divided):
-        # triple_set = set()
+        # To track operations for a triple in the interval before a snapshot
         triple_operation_dict = defaultdict(list)
         for triple_op in triple_operations_list:
             subj, objc, pred, op_type, ts = triple_op
@@ -749,23 +741,10 @@ def remove_obsolet_triple_ops(triple_operations_divided):
 
             triple = (subj, objc, pred)
             triple_operation_dict[triple].append(triple_op)
-            # Determine all triples with a odd number of triple operations because
-            # those with even numbers are inserted and deleted within the same interval
-            # if triple in triple_set:
-            #     triple_set.remove(triple)
-            # else:
-            #     triple_set.add(triple)
 
+        # Determine all triples with a odd number of triple operations because
+        # those with even numbers are inserted and deleted within the same interval
         filtered_triple_operations = []
-        # for triple_op in triple_operations_list:
-        #     subj, objc, pred, op_type, ts = triple_op
-        #     triple = (subj, objc, pred)
-        #
-        #     if triple in triple_set:
-        #         filtered_triple_operations.append(triple_op)
-        #     else:
-        #         removed_triples.append(triple_op)
-
         for triple, triple_op_list in triple_operation_dict.items():
             if len(triple_op_list) % 2 != 0:
                 filtered_triple_operations.append(triple_op_list[-1])
@@ -803,7 +782,7 @@ def remove_uncommon_triple_ops(triple_operations_divided, num_snapshots, entity_
     uncommon_relations = set()
     for relation, snapshot_frequencies_dict in relation_occ_counter.items():
         for snapshot, count in snapshot_frequencies_dict.items():
-            if count < relation_frequencies_threshold and count > 0:
+            if count > 0 and count < relation_frequencies_threshold:
                 uncommon_relations.add(relation)
                 break
 
@@ -814,17 +793,17 @@ def remove_uncommon_triple_ops(triple_operations_divided, num_snapshots, entity_
                 uncommon_entities.add(entity)
                 break
 
-    # filtered_entities = {entity for entity, count in entity_occ_counter.items() if count >= threshold}
-
     filtered_triple_operations_divided = []
     for snapshot_idx, triple_operations_list in enumerate(triple_operations_divided):
         filtered_ops = []
         for triple_op in triple_operations_list:
             subj, objc, pred, op_type, ts = triple_op
-            # if subj in filtered_entities and objc in filtered_entities and pred in filtered_relations:
-            # if pred not in uncommon_relations:
-            if subj not in uncommon_entities and objc not in uncommon_entities and pred not in uncommon_relations:
+
+            if subj not in uncommon_entities \
+                    and objc not in uncommon_entities \
+                    and pred not in uncommon_relations:
                 filtered_ops.append(triple_op)
+
         filtered_triple_operations_divided.append(filtered_ops)
 
     return filtered_triple_operations_divided
@@ -837,7 +816,8 @@ def create_wikidata_datasets(triple_operations, num_snapshots, num_of_sampled_te
     print("Set random seed: {}".format(random_seed))
     random.seed(random_seed)
 
-    output_path = Path.cwd() / "datasets_{}".format(datetime.now().strftime("%Y_%m_%d_%H_%M"))
+    output_path = Path.cwd() / "WikidataEvolve"
+    # output_path = Path.cwd() / "datasets_{}".format(datetime.now().strftime("%Y_%m_%d_%H_%M"))
     output_path.mkdir(exist_ok=True)
 
     # (1) Create directories and attach them to sub_dir_path
@@ -859,11 +839,11 @@ def create_wikidata_datasets(triple_operations, num_snapshots, num_of_sampled_te
     triple_operations_divided = create_global_mapping(triple_operations_divided, output_path, paths_dict)
 
     # (4) Store triple operations for each interval to incremental dataset
-    store_triple_operations_to_incremental_folder(triple_operations_divided, paths_dict["incremental_dataset"])
+    store_triple_operations_to_incremental_folder(triple_operations_divided, paths_dict["incremental"])
 
     # (5) Create set of present triple for each snapshot
     #     (Paths: [incremental | pseudo_incremental]/<snapshot>/global_triple2id.txt
-    calculate_and_store_snapshots(paths_dict["incremental_dataset"], paths_dict["static_dataset"],
+    calculate_and_store_snapshots(paths_dict["incremental"], paths_dict["static"],
                                   triple_operations_divided)
 
     # (6) Generate train2id/ valid2id.txt/ test2id.txt for every snapshot. The training file will be used to learn
