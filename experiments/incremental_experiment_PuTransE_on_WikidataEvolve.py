@@ -1,7 +1,13 @@
+from pathlib import Path
+import sys
+
+openke_path = Path.cwd().parents[0]
+print(openke_path)
+sys.path.append(str(openke_path))
+
 from openke.data import IncrementalTrainDataLoader, IncrementalTestDataLoader
 from openke.config import Parallel_Universe_Config
 from openke.module.model import TransE
-from pathlib import Path
 from datetime import datetime
 
 def evolve_KG(PuTransX_model, snapshot):
