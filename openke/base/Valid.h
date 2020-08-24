@@ -12,7 +12,7 @@ REAL r_valid_filter_tot = 0;
 
 extern "C"
 void validInit() {
-    printf("Initialize validation");
+    printf("Initialize validation\n");
     lastValidHead = 0;
     lastValidTail = 0;
     l_valid_filter_tot = 0;
@@ -218,7 +218,7 @@ void validTail(REAL *con, INT lastValidTail) {
 REAL validHit10 = 0;
 extern "C"
 REAL  getValidHit10() {
-    printf("Test Total is: %ld.\n", validTotal);
+    printf("Valid Total is: %ld.\n", validTotal);
     printf("Triple Total is: %ld.\n", tripleTotal);
     if (incrementalSetting)
         printf("Currently contained entities: %ld.\n", num_currently_contained_entities);

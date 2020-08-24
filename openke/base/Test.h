@@ -22,7 +22,7 @@ REAL hit1TC, hit3TC, hit10TC, mrTC, mrrTC;
 
 extern "C"
 void initTest() {
-    printf("Initialize test");
+    printf("Initialize test\n");
     lastHead = 0;
     lastTail = 0;
     lastRel = 0;
@@ -46,31 +46,6 @@ void getHeadBatch(INT *ph, INT *pt, INT *pr) {
     INT offset = -1;
 
     if(incrementalSetting){
-        // INT i = 1;
-        // for(INT entity : currently_contained_entities) {
-        //     // TODO Test
-        //     if (entity == testH)
-        //         continue;
-        
-        // TODO: Add not only currently contained entities but also entities from test/ valid triples?
-        // But all entities from test/ valid have to be hold in the training data to be represented during the
-        // Training Process
-        //
-        // What if triple is deleted in training data whereby also an entity is deleted, and at the same time 
-        // the entity is existing in a triple in test/ valid data?
-        // How to handle that:
-        // 1) Including scanning of test/ valid data in the checking of an deleted entity
-        //    after a triple deletion takes places. Implies that we load test/ valid data
-        //    before we load a snapshot, so together with the training data (and not seperately and after that).
-        //    This would also mean, that an entity could be completely deleted in the train data, although it
-        //    could be included in the test data. Further it would occur in the test/valid (head-/tail-) batch 
-        //    Would that be sufficient?
-        //
-        // 2) Make sure that after compilation train-/valid-/test data is consistent. So that we reload the
-        //    'currently_contained_entities' array by importing these datasets from the static folder.
-        //    
-
-
         for(INT i=1; i<num_currently_contained_entities;i++) {
             if (currently_contained_entities[i+offset] == testH)
                 offset++;
@@ -142,7 +117,7 @@ void getRelBatch(INT *ph, INT *pt, INT *pr) {
 
 extern "C"
 void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
-    printf("lastHead: %ld.\n", lastHead);
+    //printf("lastHead: %ld.\n", lastHead);
     INT h = testList[lastHead].h;
     INT t = testList[lastHead].t;
     INT r = testList[lastHead].r;
@@ -154,7 +129,7 @@ void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
         rig = head_rig[r];
     }
     REAL minimal = con[0];
-    printf("lastHead score: %f.\n", con[0]);
+    //printf("lastHead score: %f.\n", con[0]);
     INT l_s = 0;
     INT l_filter_s = 0;
     INT l_s_constrain = 0;
@@ -231,10 +206,10 @@ void testHead(REAL *con, INT lastHead, bool type_constrain = false) {
         }
     }
 
-    printf("Triple (%ld, %ld, %ld).\n", h, t, r);
-    printf("raw Rank: %ld.\n", l_s);
-    printf("filter Rank: %ld.\n", l_filter_s);
-    printf("-------\n");
+    //printf("Triple (%ld, %ld, %ld).\n", h, t, r);
+    //printf("raw Rank: %ld.\n", l_s);
+    //printf("filter Rank: %ld.\n", l_filter_s);
+    //printf("-------\n");
     if (l_filter_s < 10) l_filter_tot += 1;
     if (l_s < 10) l_tot += 1;
     if (l_filter_s < 3) l3_filter_tot += 1;
@@ -348,10 +323,14 @@ void testTail(REAL *con, INT lastTail, bool type_constrain = false) {
             }
         }
     }
-    printf("Triple (%ld, %ld, %ld).\n", h, t, r);
-    printf("raw Rank: %ld.\n", r_s);
-    printf("filter Rank: %ld.\n", r_filter_s);
-    printf("-------\n");
+    
+    if (incrementalSetting && r_s >= num_currently_contained_entities && lastTail < 10){
+        printf("Triple (%ld, %ld, %ld).\n", h, t, r);
+        printf("raw Rank: %ld.\n", r_s);
+        printf("filter Rank: %ld.\n", r_filter_s);
+        printf("\n");
+    }
+
     if (r_filter_s < 10) r_filter_tot += 1;
     if (r_s < 10) r_tot += 1;
     if (r_filter_s < 3) r3_filter_tot += 1;
@@ -430,8 +409,8 @@ void test_link_prediction(bool type_constrain = false) {
     r_rank /= testTotal;
     l_reci_rank /= testTotal;
     r_reci_rank /= testTotal;
-    printf("l_rank is: %f.\n", l_rank);
-    printf("r_rank is: %f.\n", r_rank);
+    //printf("l_rank is: %f.\n", l_rank);
+    //printf("r_rank is: %f.\n", r_rank);
  
     l_tot /= testTotal;
     l3_tot /= testTotal;
