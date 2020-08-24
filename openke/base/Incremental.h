@@ -168,9 +168,9 @@ void readGlobalNumEntities() {
 
     FILE *fin;
     int tmp;
-    fin = fopen((inPath + "incremental/" + "/entity2id.txt").c_str(), "r");
+    fin = fopen((inPath + "incremental/" + "entity2id.txt").c_str(), "r");
     entityTotal = getLineNum(fin);
-    printf("Folder: %s.\n", (inPath + "incremental/" + "/entity2id.txt").c_str());
+    printf("Folder: %s.\n", (inPath + "incremental/" + "entity2id.txt").c_str());
     fclose(fin);
 }
 
@@ -180,8 +180,8 @@ void readGlobalNumRelations() {
 
     FILE *fin;
     int tmp;
-    fin = fopen((inPath + "incremental/" + "/relation2id.txt").c_str(), "r");
-    printf("Folder: %s.\n", (inPath + "incremental/" + "/relation2id.txt").c_str());
+    fin = fopen((inPath + "incremental/" + "relation2id.txt").c_str(), "r");
+    printf("Folder: %s.\n", (inPath + "incremental/" + "relation2id.txt").c_str());
     relationTotal = getLineNum(fin);
     fclose(fin);
 }
@@ -284,11 +284,12 @@ void initializeTrainingOperations(int snapshot) {
     printf("Import snapshot: %d.\n", snapshot);
     
     std::string snapshot_folder = int_to_string(snapshot);
-    printf("Test");
+    printf("Test\n");
     FILE *fin;
     int tmp;
 
     fin = fopen((inPath + "incremental/" + snapshot_folder + "/train-op2id.txt").c_str(), "r");
+    printf("Test2\n");
     printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/train-op2id.txt").c_str());
     
     totalOperations = getLineNum(fin);
