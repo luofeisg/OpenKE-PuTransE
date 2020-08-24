@@ -288,8 +288,9 @@ void initializeTrainingOperations(int snapshot) {
     FILE *fin;
     int tmp;
 
+    printf("Test2\n");
+    printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/train-op2id.txt").c_str());
     fin = fopen((inPath + "incremental/" + snapshot_folder + "/train-op2id.txt").c_str(), "r");
-    //printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/train-op2id.txt").c_str());
     
     totalOperations = getLineNum(fin);
     KnowledgeGraphOperations = (TripleOperation *) calloc(totalOperations, sizeof(TripleOperation));
