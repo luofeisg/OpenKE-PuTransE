@@ -84,8 +84,8 @@ def main():
     incremental_dataset_path = "../benchmarks/Wikidata/WikidataEvolve/"
 
     early_stopping_patience = 5
-    valid_steps = 100 # TODO set to 100
-    limit_embedding_spaces = 100
+    valid_steps = 10 # TODO set to 100
+    limit_embedding_spaces = 10
     print("Initial random seed is:", init_random_seed)
     print("Number of snapshots are:", num_snapshots)
 
