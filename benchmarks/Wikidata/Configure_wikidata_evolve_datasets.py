@@ -257,7 +257,10 @@ def store_triple_operations_to_incremental_folder(triple_operations_divided, inc
             output.writelines(output_lines)
 
 
-def calculate_and_store_snapshots(incremental_dataset_path, static_dataset_path, triple_operations_divided):
+def calculate_and_store_snapshots(paths_dict, triple_operations_divided):
+    incremental_dataset_path = paths_dict["incremental"]
+    static_dataset_path = paths_dict["static"]
+
     triple_result_set = set()
     for snapshot_idx, triple_operations_list in enumerate(triple_operations_divided):
         for op in triple_operations_list:
@@ -275,6 +278,7 @@ def calculate_and_store_snapshots(incremental_dataset_path, static_dataset_path,
         static_triple2id = static_dataset_path / "{}".format(snapshot) / "global_triple2id.txt"
         write_to_file(file=incremental_triple2id, triples_iterable=triple_result_set)
         write_to_file(file=static_triple2id, triples_iterable=triple_result_set)
+
 
 
 def load_snapshot_triple_set(path, snapshot, filename="global_triple2id.txt"):
@@ -421,7 +425,7 @@ def create_snapshot_entity_and_relation_mapping(paths, snapshot):
     # (2.1) Iterate through triple operations and map wikidata_ids to new ids
     for dataset in triple_set_filenames:
         triple_set = load_snapshot_triple_set(static_dataset_path, snapshot, dataset)
-        print("Snapshot {}: number of {} triples (static dataset): {}.".format(snapshot, dataset[dataset.find("2")],
+        print("Snapshot {}: number of {} triples (static dataset): {}.".format(snapshot, dataset[:dataset.find("2")],
                                                                                len(triple_set)))
 
         static_triple_file = snapshot_fld / "{}".format(dataset)
@@ -836,6 +840,29 @@ def load_mapping_dict(filepath):
 
     return mapping_dict
 
+def map_triple_files(path_dict, num_snapshots):
+    static_dataset_path = path_dict["static"]
+    dataset_name = "global_triple2id.txt"
+
+    for snapshot in range(1, num_snapshots):
+        static_snapshot_fld = static_dataset_path / "{}".format(snapshot)
+        entities_mapping_file =  static_snapshot_fld / "entity2id.txt"
+        entity_mapping_dict = load_mapping_dict(entities_mapping_file)
+        relations_mapping_file = static_snapshot_fld / "relation2id.txt"
+        relation_mapping_dict = load_mapping_dict(relations_mapping_file)
+
+        output_file_name = dataset_name[dataset_name.find("triple"):]
+        output_file = static_snapshot_fld / output_file_name
+        input_triple_set = load_snapshot_triple_set(static_dataset_path, snapshot, dataset_name)
+
+        with output_file.open(mode="wt", encoding="UTF-8") as out:
+            for triple in input_triple_set:
+                head, tail, rel = triple
+                head = entity_mapping_dict[head]
+                tail = entity_mapping_dict[tail]
+                rel = relation_mapping_dict[rel]
+                out.write("{} {} {}\n".format(head, tail, rel))
+
 def map_static_evaluation_samples(path_dict, num_snapshots):
     incremental_dataset_path = path_dict["incremental"]
     static_dataset_path = path_dict["static"]
@@ -904,8 +931,7 @@ def create_wikidata_datasets(triple_operations, num_snapshots, num_of_sampled_te
 
     # (5) Create set of present triple for each snapshot
     #     (Paths: [incremental | pseudo_incremental]/<snapshot>/global_triple2id.txt
-    calculate_and_store_snapshots(paths_dict["incremental"], paths_dict["static"],
-                                  triple_operations_divided)
+    calculate_and_store_snapshots(paths_dict, triple_operations_divided)
 
     # (6) Generate train2id/ valid2id.txt/ test2id.txt for every snapshot. The training file will be used to learn
     # static models. Test and Validation files are constructed for all types of methods
@@ -926,11 +952,12 @@ def create_wikidata_datasets(triple_operations, num_snapshots, num_of_sampled_te
     if num_of_sampled_test_triples:
         sample_evaluation_examples(paths_dict, num_snapshots, num_of_sampled_test_triples)
 
-    # (10) Map static datasets to local_ids at each snapshot
+    # (10) Map datasets to local_ids at each snapshot for static learning procedure
     create_entity_and_relation_mapping(paths_dict, num_snapshots)
 
     if num_of_sampled_test_triples:
         map_static_evaluation_samples(paths_dict, num_snapshots)
+    map_triple_files(paths_dict, num_snapshots)
 
     # (11)
     create_incremental_triple_classification_file(paths_dict, num_snapshots)
