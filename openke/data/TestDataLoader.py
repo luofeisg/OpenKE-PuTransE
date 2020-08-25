@@ -26,12 +26,13 @@ class TestDataSampler(object):
 
 class TestDataLoader(object):
 
-    def __init__(self, in_path="./", sampling_mode='link', random_seed=4, mode='test', setting="static"):
+    def __init__(self, in_path="./", sampling_mode='link', random_seed=4, mode='test', setting="static", load_all_triples = False):
         base_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../release/Base.so"))
         self.lib = ctypes.cdll.LoadLibrary(base_file)
         # print("Random_seed for TestDataLoader: {}".format(self.lib.getRandomSeed()))
         self.setting = setting
         self.mode = mode
+        self.load_all_triples = load_all_triples
         if self.mode == 'test':
             """for link prediction"""
             self.lib.getHeadBatch.argtypes = [
@@ -72,6 +73,7 @@ class TestDataLoader(object):
         self.lib.setRandomSeed.argtypes = [
             ctypes.c_int64
         ]
+        self.lib.activateLoadOfAllTriples.argtypes = [ctypes.c_int64]
         """set essential parameters"""
         self.in_path = in_path
         self.sampling_mode = sampling_mode
@@ -87,6 +89,9 @@ class TestDataLoader(object):
             # delegated importTrainFiles execution to python because corruption process in sampling for triple classification
             # accesses training data structures in order to filter negative examples that did not occurred in train data
             self.lib.importTrainFiles() # Only necessary if we evaluate without creating a TrainDataLoader object before
+
+            if self.load_all_triples:
+                self.lib.activateLoadOfAllTriples(1)
             self.lib.importTestFiles()
             self.relTotal = self.lib.getRelationTotal()
             self.entTotal = self.lib.getEntityTotal()

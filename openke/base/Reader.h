@@ -237,6 +237,11 @@ Triple *testList;
 Triple *validList;
 Triple *tripleList;
 
+bool loadAllTriple = false;
+extern "C"
+void activateLoadOfAllTriples(bool){
+    loadAllTriple = true;
+}
 
 extern "C"
 void importTestFiles() {
@@ -287,6 +292,20 @@ void importTestFiles() {
     fclose(f_kb1);
     fclose(f_kb2);
     fclose(f_kb3);
+
+    if (loadAllTriple){
+        FILE *fin = fopen((inPath + "global_triple2id.txt").c_str(), "r");
+        tripleTotal = getLineNum(fin);
+        callocTripleArray(tripleList ,tripleTotal);
+        printf("Captured %ld triples in total.\n", tripleTotal);
+        
+        for (INT i = 0; i < tripleTotal; i++) {
+            tmp = fscanf(fin, "%ld", &tripleList[i].h);
+            tmp = fscanf(fin, "%ld", &tripleList[i].t);
+            tmp = fscanf(fin, "%ld", &tripleList[i].r);
+        }
+        fclose(fin);
+    }
 
     std::sort(tripleList, tripleList + tripleTotal, Triple::cmp_head);
     std::sort(testList, testList + testTotal, Triple::cmp_rel2);

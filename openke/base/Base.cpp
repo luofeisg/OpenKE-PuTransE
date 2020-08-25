@@ -92,6 +92,9 @@ void getTrainingTriples(
         INT *tailList
 );
 
+extern "C"
+void activateLoadOfAllTriples(bool);
+
 /*
 ===============ParallelUniverse.h===============
 */
@@ -474,6 +477,17 @@ void getEntityRelations(INT* entity_rels, INT entity, bool entity_is_tail) {
 }
 
 int main() {   
+    
+    // Static
+    // inPath = "../../benchmarks/Wikidata/WikidataEvolve/static/1/";
+    // setBern(1);
+    // setWorkThreads(8);
+    // randReset();
+    // setRandomSeed();
+    // activateLoadOfAllTriples(true);
+    // importTestFiles();
+
+    // Incremental
     // inPath = "../../benchmarks/Wikidata/WikidataEvolve/";
     // setBern(1);
     // setWorkThreads(8);
