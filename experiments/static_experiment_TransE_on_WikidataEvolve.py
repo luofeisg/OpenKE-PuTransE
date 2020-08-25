@@ -106,7 +106,7 @@ def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path,
             print('Save model at epoch %d.' % trained_epochs)
             best_model = deepcopy(transe)
             transe.save_checkpoint(
-                '../checkpoint/transe_{}_exp{}.ckpt'.format(dataset_name, experiment_index))
+                '../evaluation_framework_checkpoint/transe_{}_exp{}.ckpt'.format(dataset_name, experiment_index))
             bad_counts = 0
         else:
             bad_counts += 1
@@ -185,7 +185,7 @@ def main():
     best_trained_model = None
     best_hyper_param = None
 
-    valid_steps = 50
+    valid_steps = 100
     early_stop_patience = 4
     max_epochs = 1000
 
@@ -206,8 +206,8 @@ def main():
             best_trained_model, best_hyper_param, best_experiment = grid_search_TransE(transe_hyper_param_dict,
                                                                                        dataset_name,
                                                                                        dataset_snapshot_path,
-                                                                                       valid_steps=100,
-                                                                                       early_stop_patience=4,
+                                                                                       valid_steps=valid_steps,
+                                                                                       early_stop_patience=early_stop_patience,
                                                                                        max_epochs=max_epochs)
 
             print("-----------------------------")
