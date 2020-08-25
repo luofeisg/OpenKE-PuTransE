@@ -208,6 +208,23 @@ def create_directories(output_path, num_snaps):
 
     return paths_dict
 
+def copy_files_for_pseudo_incremental_dataset(paths, num_snapshots):
+    pseudo_incremental_dataset_path = paths["pseudo_incremental"]
+    entity_file = pseudo_incremental_dataset_path / "entity2id.txt"
+    relation_file = pseudo_incremental_dataset_path / "relation2id.txt"
+
+    for snapshot in range(1, num_snapshots + 1):
+        # Copy entity2id.txt and relation2id.txt to snapshot folders
+        snapshot_fld = pseudo_incremental_dataset_path / "{}".format(snapshot)
+        snap_entity_file = snapshot_fld / "entity2id.txt"
+        snap_relation_file = snapshot_fld /  "relation2id.txt"
+        shutil.copy(str(entity_file), str(snap_entity_file))
+        shutil.copy(str(relation_file), str(snap_relation_file))
+
+        # Copy global_triple2id.txt to triple2id.txt for every snap
+        global_triple_file = snapshot_fld / "global_triple2id.txt"
+        triple_file = snapshot_fld / "triple2id.txt"
+        shutil.copy(str(global_triple_file), str(triple_file))
 
 def create_pseudo_incremental_train_datasets(paths, num_snapshots):
     # (6.1) Get snapshot folders from static dataset
@@ -218,18 +235,9 @@ def create_pseudo_incremental_train_datasets(paths, num_snapshots):
 
     # (6.2) Iterate static snapshot folders and substract triple set in <n> from triple set in <n-1> into pseudo_incr/triple2id.txt
     for snapshot in range(1, num_snapshots + 1):
-        new_triple_result_set = load_snapshot_triple_set(static_dataset_path, snapshot)
-
-        # (6.3) Detect newly added triples in snapshot <n> by subtracting triple2id.txt from snapshot n - 1
-        # and store into pseud_incr_dataset / <snapshot> / triple2id.txt
-        pseud_incr_triple2id_set = new_triple_result_set - old_triple_result_set
-        pseud_incr_triple2id_file = pseudo_incremental_dataset_path / "{}".format(snapshot) / "global_triple2id.txt"
-        write_to_file(file=pseud_incr_triple2id_file, triples_iterable=pseud_incr_triple2id_set)
-
-        # (6.4) Create train2id where only newly added train triples are covered
-        # (6.4.1) Load train2id of snapshot
-        new_train_triple_result_set = load_snapshot_triple_set(static_dataset_path, snapshot,
-                                                               filename="train2id.txt")
+        # (6.3) Create train2id where only newly added train triples are covered
+        # (6.3.1) Load train2id of current snapshot
+        new_train_triple_result_set = load_snapshot_triple_set(static_dataset_path, snapshot, filename="train2id.txt")
 
         # (6.4.2) Detect newly added train triples in snapshot <n> by substracting train2id.txt from snap n with triple2id.txt of n - 1
         #         and store result into pseud_incr_dataset / <snapshot> / train2id.txt
@@ -239,7 +247,7 @@ def create_pseudo_incremental_train_datasets(paths, num_snapshots):
         pseud_incr_train2id_file = pseudo_incremental_dataset_path / "{}".format(snapshot) / "train2id.txt"
         write_to_file(file=pseud_incr_train2id_file, triples_iterable=pseud_incr_train2id_set)
 
-        old_triple_result_set = new_triple_result_set
+        old_triple_result_set = new_train_triple_result_set
 
 
 def store_triple_operations_to_incremental_folder(triple_operations_divided, incremental_dataset_path):
@@ -258,9 +266,6 @@ def store_triple_operations_to_incremental_folder(triple_operations_divided, inc
 
 
 def calculate_and_store_snapshots(paths_dict, triple_operations_divided):
-    incremental_dataset_path = paths_dict["incremental"]
-    static_dataset_path = paths_dict["static"]
-
     triple_result_set = set()
     for snapshot_idx, triple_operations_list in enumerate(triple_operations_divided):
         for op in triple_operations_list:
@@ -274,11 +279,11 @@ def calculate_and_store_snapshots(paths_dict, triple_operations_divided):
                 triple_result_set.remove(triple)
 
         snapshot = snapshot_idx + 1
-        incremental_triple2id = incremental_dataset_path / "{}".format(snapshot) / "global_triple2id.txt"
-        static_triple2id = static_dataset_path / "{}".format(snapshot) / "global_triple2id.txt"
-        write_to_file(file=incremental_triple2id, triples_iterable=triple_result_set)
-        write_to_file(file=static_triple2id, triples_iterable=triple_result_set)
 
+        # Create global_triple2id.txt for every dataset
+        for dataset_path in paths_dict.values():
+            global_triple2id = dataset_path / "{}".format(snapshot) / "global_triple2id.txt"
+            write_to_file(file=global_triple2id, triples_iterable=triple_result_set)
 
 
 def load_snapshot_triple_set(path, snapshot, filename="global_triple2id.txt"):
@@ -844,7 +849,7 @@ def map_triple_files(path_dict, num_snapshots):
     static_dataset_path = path_dict["static"]
     dataset_name = "global_triple2id.txt"
 
-    for snapshot in range(1, num_snapshots):
+    for snapshot in range(1, num_snapshots+1):
         static_snapshot_fld = static_dataset_path / "{}".format(snapshot)
         entities_mapping_file =  static_snapshot_fld / "entity2id.txt"
         entity_mapping_dict = load_mapping_dict(entities_mapping_file)
@@ -868,7 +873,7 @@ def map_static_evaluation_samples(path_dict, num_snapshots):
     static_dataset_path = path_dict["static"]
     dataset_names = ["valid2id.txt", "test2id.txt"]
 
-    for snapshot in range(1, num_snapshots):
+    for snapshot in range(1, num_snapshots+1):
         static_snapshot_fld = static_dataset_path / "{}".format(snapshot)
         entities_mapping_file =  static_snapshot_fld / "entity2id.txt"
         entity_mapping_dict = load_mapping_dict(entities_mapping_file)
@@ -939,6 +944,7 @@ def create_wikidata_datasets(triple_operations, num_snapshots, num_of_sampled_te
 
     # (6) Create triple2id.txt and train2id.txt for pseudo_incremental dataset
     create_pseudo_incremental_train_datasets(paths_dict, num_snapshots)
+    copy_files_for_pseudo_incremental_dataset(paths_dict, num_snapshots)
 
     # (7) Create train-op2id.txt
     configure_incremental_train_datasets(paths_dict, triple_operations_divided, num_snapshots)

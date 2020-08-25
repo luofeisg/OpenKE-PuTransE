@@ -294,7 +294,7 @@ void importTestFiles() {
     fclose(f_kb3);
 
     if (loadAllTriple){
-        FILE *fin = fopen((inPath + "global_triple2id.txt").c_str(), "r");
+        FILE *fin = fopen((inPath + "triple2id.txt").c_str(), "r");
         tripleTotal = getLineNum(fin);
         callocTripleArray(tripleList ,tripleTotal);
         printf("Captured %ld triples in total.\n", tripleTotal);
