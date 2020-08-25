@@ -11,6 +11,7 @@ class IncrementalTestDataLoader(TestDataLoader):
         self.lib.initializeTripleOperations.argtypes = [ctypes.c_int64]
         self.lib.loadTestData.argtypes = [ctypes.c_int64]
         self.lib.loadValidData.argtypes = [ctypes.c_int64]
+        self.lib.loadSnapshotTriples.argtypes = [ctypes.c_int64]
 
         self.num_snapshots = num_snapshots
         self.initialize_incremental_loading()
@@ -27,6 +28,9 @@ class IncrementalTestDataLoader(TestDataLoader):
     def evolveTripleList(self, snapshot_idx):
         self.lib.initializeTripleOperations(snapshot_idx)
         self.lib.evolveTripleList()
+
+    def evolveTripleList2(self, snapshot_idx):
+        self.lib.loadSnapshotTriples(snapshot_idx)
 
     def load_snapshot(self, snapshot_idx):
         if self.mode == "test":

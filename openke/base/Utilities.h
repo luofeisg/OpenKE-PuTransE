@@ -41,7 +41,7 @@ void callocIntArray(INT* &arr, INT length) {
         arr = (INT *) realloc(arr, length * sizeof(INT));
     
     if (!arr) {
-        printf("out of mem\n");
+        printf("out of memory!!\n");
         exit(EXIT_FAILURE);
     }
 }

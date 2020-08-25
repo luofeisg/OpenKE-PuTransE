@@ -249,7 +249,7 @@ void loadTestData(int snapshot) {
     }
     fclose(fin);
 
-    printf("Number of test triples in snapshot: %ld", testTotal);
+    printf("Number of test triples in snapshot: %ld\n", testTotal);
 }
 
 extern "C"
@@ -274,13 +274,12 @@ void loadValidData(int snapshot) {
     }
     fclose(fin);
 
-    printf("Number of valid triples in snapshot: %ld", validTotal);   
+    printf("Number of valid triples in snapshot: %ld\n", validTotal);   
 }
 
 // Read out all training operations
 extern "C"
 void initializeTrainingOperations(int snapshot) {
-    resetSnapShot();
     printf("Import snapshot: %d.\n", snapshot);
     
     std::string snapshot_folder = int_to_string(snapshot);
@@ -538,8 +537,8 @@ void insertTriple(Triple trip) {
 }
 
 void insertTrainTriple(Triple trip) {
-    adjustTrainEntitySet(trip.h);
-    adjustTrainEntitySet(trip.t);
+    //adjustTrainEntitySet(trip.h);
+    //adjustTrainEntitySet(trip.t);
     adjustTrainRelationSet(trip.r);
     
     trainTotal++;
@@ -584,7 +583,7 @@ void relationRemovalCheck(INT rel){
     }
 }
 
-void TrainRelationRemovalCheck(INT rel){
+void trainRelationRemovalCheck(INT rel){
     bool relationExists = checkIfTrainRelationExists(rel); 
     if(relationExists == false){
         // currently_contained_relations.erase(relation);
@@ -639,9 +638,9 @@ void deleteTrainTriple(Triple trip) {
         trainTotal--;
         callocTripleArray(trainList, trainTotal);
 
-        trainEntityRemovalCheck(trip.h);
-        trainEntityRemovalCheck(trip.t);
-        TrainRelationRemovalCheck(trip.r);
+        // trainEntityRemovalCheck(trip.h);
+        // trainEntityRemovalCheck(trip.t);
+        trainRelationRemovalCheck(trip.r);
     }else{
         printf("Train Triple %ld,%ld,%ld not found in KG.", trip.h, trip.t, trip.r);
         return;
@@ -800,7 +799,8 @@ void evolveTrainList() {
             printf("Reached snapshot.\n");
         }
     }
-    
+    resetSnapShot();
+
     loadIncrementalHelpers(
         trainList,
         trainHead,
@@ -823,9 +823,89 @@ void evolveTrainList() {
         left_mean,
         right_mean
     );
-
+    
     printf("Currently contained train triples: %ld.\n", trainTotal);
 }
+///////// Alternative mechanism
+void resetTripleList(){
+    if (tripleList != NULL) {
+        free(tripleList);
+        tripleList = NULL;
+        tripleTotal = 0;
+        
+        free(currently_contained_entities);
+        currently_contained_entities = NULL;
+        num_currently_contained_entities = 0;
+    }
+}
+
+void loadCurrentKGElements(std::set<INT> entity_set, std::set<INT> relation_set){
+    num_currently_contained_entities = entity_set.size();
+    printf("Currently contained entities: %ld.\n", getNumCurrentlyContainedEntities());
+    callocIntArray(currently_contained_entities, num_currently_contained_entities);
+    INT entity_index = 0;
+    INT current_entity = -1;
+    
+    // Transmit from entity set to global array currently_contained_entities
+    for (std::set<INT>::iterator it = entity_set.begin(); it != entity_set.end();){
+        current_entity = *it;
+        currently_contained_entities[entity_index] = current_entity;
+        entity_index++;
+        it++;
+    } 
+
+    num_currently_contained_relations = relation_set.size();
+    printf("Currently contained relations: %ld.\n\n", num_currently_contained_relations);
+    callocIntArray(currently_contained_relations, num_currently_contained_relations);
+    INT relation_index = 0;
+    INT current_relation = -1;
+    
+    // Transmit from relation set to global array currently_contained_relations
+    for (std::set<INT>::iterator it = relation_set.begin(); it != relation_set.end();){
+        current_relation = *it;
+        currently_contained_entities[relation_index] = current_relation;
+        relation_index++;
+        it++;
+    } 
+
+}
+
+extern "C"
+void loadSnapshotTriples(int snapshot) {
+    resetTripleList();
+    printf("Import triple list: %d.\n", snapshot);
+    std::string snapshot_folder = int_to_string(snapshot);
+    
+    std::set<INT> entity_set;
+    std::set<INT> relation_set;
+
+    FILE *fin;
+    int tmp;
+
+    printf("Folder: %s.\n", (inPath + "incremental/" + snapshot_folder + "/global_triple2id.txt").c_str());
+    fin = fopen((inPath + "incremental/" + snapshot_folder + "/global_triple2id.txt").c_str(), "r");
+    
+    tripleTotal = getLineNum(fin);
+    tripleList = (Triple *) calloc(tripleTotal, sizeof(Triple));
+    printf("Captured %ld triples in snapshot %d.\n", tripleTotal, snapshot);
+    for (INT i = 0; i < tripleTotal; i++) {
+        tmp = fscanf(fin, "%ld", &tripleList[i].h);
+        entity_set.insert(tripleList[i].h);
+        
+        tmp = fscanf(fin, "%ld", &tripleList[i].t);
+        entity_set.insert(tripleList[i].t);
+        
+        tmp = fscanf(fin, "%ld", &tripleList[i].r);
+        relation_set.insert(tripleList[i].r);
+    }
+    fclose(fin);
+    std::sort(tripleList, tripleList + tripleTotal, Triple::cmp_head);
+
+    printf("Finished loading snapshot.\n");
+    loadCurrentKGElements(entity_set, relation_set);
+}
+
+/////////
 
 extern "C"
 void evolveTripleList() {

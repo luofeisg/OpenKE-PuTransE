@@ -134,6 +134,7 @@ void setNumSnapshots(INT num);
 extern "C"
 INT getNumSnapshots();
 
+extern "C"
 void activateIncrementalSetting();
 
 extern "C"
@@ -157,7 +158,8 @@ void loadTestData(int snapshot);
 extern "C"
 void loadValidData(int snapshot);
 
-
+extern "C"
+void loadSnapshotTriples(int snapshot);
 /*
 ================================================
 */
@@ -472,5 +474,30 @@ void getEntityRelations(INT* entity_rels, INT entity, bool entity_is_tail) {
 }
 
 int main() {   
+    // inPath = "../../benchmarks/Wikidata/WikidataEvolve/";
+    // setBern(1);
+    // setWorkThreads(8);
+    // randReset();
+    // setRandomSeed();
+
+
+    //  setNumSnapshots(4);
+
+    //  initializeIncrementalSetting();
+    //  for(int i = 1; i<=num_snapshots; i++){
+    //     // Evolve train list
+    //     initializeTrainingOperations(i);
+    //     evolveTrainList();
+         
+    //      // Evolve triple List
+    //     loadSnapshotTriples(i);
+
+    //     // Parallel Universe - gather embedding spaces
+    //     INT triplet_constraint = trainTotal * 0.01;
+    //     getParallelUniverse(triplet_constraint, 0.5);
+    //     swapHelpers();
+    //     resetUniverse();
+
+    //  }
     return 0;
 }

@@ -11,14 +11,15 @@ from openke.module.model import TransE
 from datetime import datetime
 
 def evolve_KG(PuTransX_model, snapshot):
-    print("Snap {}: (1) Evolve underlying KG\n".format(snapshot))
-    print("Snap {}: (1.1) Evolve training dataset\n".format(snapshot))
+    print("Snap {}: (1) Evolve underlying KG".format(snapshot))
+    print("Snap {}: (1.1) Evolve training dataset".format(snapshot))
     PuTransX_model.train_dataloader.load_snapshot(snapshot)
 
-    print("Snap {}: (1.2) Load evaluation data\n".format(snapshot))
-    PuTransX_model.data_loader.evolveTripleList(snapshot)
+    print("Snap {}: (1.2) Load evaluation data".format(snapshot))
+    # PuTransX_model.data_loader.evolveTripleList(snapshot)
+    PuTransX_model.data_loader.evolveTripleList2(snapshot)
 
-    print("Snap {}: (1.2.3) Load validation dataset\n".format(snapshot))
+    print("Snap {}: (1.2.3) Load validation dataset".format(snapshot))
     PuTransX_model.valid_dataloader.load_snapshot(snapshot)
 
     print("Snap {}: (1.2.3) Load test dataset\n".format(snapshot))
@@ -29,47 +30,47 @@ def PuTransX_training_procedure(PuTransX_model, snapshot, embedding_spaces):
     PuTransX_model.training_identifier = "snapshot{}".format(snapshot)
     PuTransX_model.reset_valid_variables()
 
-    print("Snap {}: (1) Check if best model already has been trained for snaphot.\n".format(snapshot))
+    print("Snap {}: (1) Check if best model already has been trained for snaphot.".format(snapshot))
     best_model_filename = "Best_model_Pu{}_snapshot{}.ckpt".format(PuTransX_model.embedding_model.__name__, snapshot)
     best_model_file = Path(PuTransX_model.checkpoint_dir) / best_model_filename
 
     # If best model does not exist yet, train it
     if not best_model_file.exists():
-        print("Snap {}: (1.1) Best model does not exists yet. Train PuTransE with limit of {} universes.\n".format(snapshot, embedding_spaces))
+        print("Snap {}: (1.1) Best model does not exists yet. Train PuTransE with limit of {} universes.".format(snapshot, embedding_spaces))
         PuTransX_model.train_parallel_universes(embedding_spaces)
     else:
-        print("Snap {}: Model already trained\n")
+        print("Snap {}: Model already trained")
 
-    print("Snap {}: Load best model...\n")
+    print("Snap {}: Load best model...")
     PuTransX_model.load_parameters(best_model_filename)
     print("Snap {}: Loaded best model with {} trained universes.\n".format(snapshot, PuTransX_model.next_universe_id))
 
 
 def PuTransX_evaluation_procedure(PuTransX_model, incremental_strategy, snapshot):
     PuTransX_model.incremental_strategy = incremental_strategy
-    print("Snap {}: Start evaluation procedure.\n".format(snapshot))
-    print("-- incremental strategy: {}.\n".format(incremental_strategy))
+    print("Snap {}: Start evaluation procedure.".format(snapshot))
+    print("-- incremental strategy: {}.".format(incremental_strategy))
     print("-- Timestamp: {}.\n".format(datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
-    print("Snap {}: (1) Conduct evaluation setting with missing energy score handling: {}\n".format(snapshot, "Infinity Score Handling"))
+    print("Snap {}: (1) Conduct evaluation setting with missing energy score handling: {}".format(snapshot, "Infinity Score Handling"))
     PuTransX_model.missing_embedding_handling = "last_rank"
 
-    print("Snap {}: (1.1) Run Link Prediction...\n".format(snapshot))
-    # PuTransX_model.run_link_prediction()
+    print("\nSnap {}: (1.1) Run Link Prediction...".format(snapshot))
+    PuTransX_model.run_link_prediction()
 
-    print("Snap {}: (1.2) Run Triple Classification + Negative Triple Classifcation...\n".format(snapshot))
+    print("\nSnap {}: (1.2) Run Triple Classification + Negative Triple Classifcation...".format(snapshot))
     PuTransX_model.run_triple_classification_from_files(snapshot)
 
-    print("Snap {}: (2) Run Link Prediction with mode: {}.\n".format(snapshot, "Null Vector Handling"))
+    print("\nSnap {}: (2) Run Link Prediction with mode: {}.".format(snapshot, "Null Vector Handling"))
     PuTransX_model.missing_embedding_handling = "null_vector"
 
-    print("Snap {}: (2.1) Run Link Prediction...\n".format(snapshot))
-    # PuTransX_model.run_link_prediction()
+    print("\nSnap {}: (2.1) Run Link Prediction...".format(snapshot))
+    PuTransX_model.run_link_prediction()
 
-    print("Snap {}: (2.2) Run Triple Classification + Negative Triple Classifcation...\n".format(snapshot))
+    print("\nSnap {}: (2.2) Run Triple Classification + Negative Triple Classifcation...".format(snapshot))
     PuTransX_model.run_triple_classification_from_files(snapshot)
 
-    print("Snap {}: Finished evaluation procedure at: {}.\n".format(snapshot, datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
+    print("\nSnap {}: Finished evaluation procedure at: {}.\n".format(snapshot, datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
     PuTransX_model.reset_evaluation_helpers()
 
 def main():
@@ -144,8 +145,6 @@ def main():
         max_triple_constraint=1500,
         min_balance=0.25,
         max_balance=0.5,
-
-        const_num_epochs=10,  # TODO Remove -> set only for test
 
         # embedding method
         embedding_model=embedding_method,
