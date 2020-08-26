@@ -72,7 +72,7 @@ def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path,
     )
 
     # -- Validator
-    valid_dl = TestDataLoader(train_dataloader.in_path, "link", mode='valid')
+    valid_dl = TestDataLoader(train_dataloader.in_path, "link", mode='valid', load_all_triples=True)
     validator = Validator(model=transe, data_loader=valid_dl)
 
     # -- Validation params
@@ -124,7 +124,7 @@ def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path,
 
 
 def test_model(model, dataset_path):
-    test_dataloader = TestDataLoader(dataset_path, "link", mode='test')
+    test_dataloader = TestDataLoader(dataset_path, "link", mode='test', load_all_triples=True)
     tester = Tester(model=model, data_loader=test_dataloader, use_gpu=torch.cuda.is_available())
 
     # Link prediction
@@ -185,9 +185,9 @@ def main():
     best_trained_model = None
     best_hyper_param = None
 
-    valid_steps = 100
+    valid_steps = 1
     early_stop_patience = 4
-    max_epochs = 1000
+    max_epochs = 2
 
     # Define hyper param ranges
     transe_hyper_param_dict = {}
@@ -228,6 +228,7 @@ def main():
             mr, acc = test_model(trained_model, dataset_snapshot_path)
             print("Mean Rank for snapshot {}: {}".format(snapshot, mr))
             print("Accuracy for snapshot {}: {}".format(snapshot, acc))
+
 
 if __name__ == '__main__':
     main()
