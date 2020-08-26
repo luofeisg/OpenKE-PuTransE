@@ -290,8 +290,13 @@ class Parallel_Universe_Config(Tester):
         return self
 
     def train_parallel_universes(self, num_of_embedding_spaces):
-        start_time = time.time()
+        # To measure time for training procedure (in seconds)
+        training_duration = 0
+
         for universe_id in range(num_of_embedding_spaces):
+            time_measured = False
+            start_time = time.time()
+
             self.set_random_seed(self.initial_random_seed + self.next_universe_id)
             self.compile_train_datset()
             embedding_space = self.train_embedding_space()
@@ -299,6 +304,10 @@ class Parallel_Universe_Config(Tester):
             self.next_universe_id += 1
 
             if (universe_id + 1) % self.valid_steps == 0:
+                end_time = time.time()
+                training_duration = training_duration + (end_time - start_time)
+                time_measured = True
+
                 print("Universe %d has finished, validating..." % (self.next_universe_id - 1))
                 self.eval_universes(eval_mode='valid')
                 hit10 = self.valid()
@@ -322,11 +331,16 @@ class Parallel_Universe_Config(Tester):
                     self.get_best_state()
                     break
 
+            if not time_measured:
+                end_time = time.time()
+                training_duration = training_duration + (end_time - start_time)
+                time_measured = True
+
             if self.save_steps and self.checkpoint_dir and (universe_id + 1) % self.save_steps == 0:
                 print('Save model at universe %d.' % self.next_universe_id)
                 self.save_model()
-        end_time = time.time()
-        print('Time took for creation of embedding spaces: {:5.3f}s'.format(end_time - start_time), end='  ')
+
+        print('Time took for creation of embedding spaces: {:5.3f}s'.format(training_duration), end='\n')
 
     def gather_embedding_spaces(self, entity_1, rel, entity_2=None):
         entity_occurences = self.entity_universes[entity_1]
