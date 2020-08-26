@@ -27,7 +27,7 @@ def evolve_KG(PuTransX_model, snapshot):
 
 def PuTransX_training_procedure(PuTransX_model, snapshot, embedding_spaces):
     print("Snap {}: Start training procedure.\n".format(snapshot))
-    PuTransX_model.training_identifier = "snapshot{}".format(snapshot)
+    PuTransX_model.training_identifier = "snapshot_{}".format(snapshot)
     PuTransX_model.reset_valid_variables()
 
     print("Snap {}: (1) Check if best model already has been trained for snaphot.".format(snapshot))
@@ -36,10 +36,10 @@ def PuTransX_training_procedure(PuTransX_model, snapshot, embedding_spaces):
 
     # If best model does not exist yet, train it
     if not best_model_file.exists():
-        print("Snap {}: (1.1) Best model does not exists yet. Train PuTransE with limit of {} universes.".format(snapshot, embedding_spaces))
+        print("Snap {}: (1.1) Best model does not exists yet. Train PuTransE with limit of {} universes.\n".format(snapshot, embedding_spaces))
         PuTransX_model.train_parallel_universes(embedding_spaces)
     else:
-        print("Snap {}: Model already trained")
+        print("Snap {}: Model already trained\n")
 
     print("Snap {}: Load best model...")
     PuTransX_model.load_parameters(best_model_filename)
@@ -52,14 +52,14 @@ def PuTransX_evaluation_procedure(PuTransX_model, incremental_strategy, snapshot
     print("-- incremental strategy: {}.".format(incremental_strategy))
     print("-- Timestamp: {}.\n".format(datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
-    # print("Snap {}: (1) Conduct evaluation setting with missing energy score handling: {}".format(snapshot, "Infinity Score Handling"))
-    # PuTransX_model.missing_embedding_handling = "last_rank"
-    #
-    # print("\nSnap {}: (1.1) Run Link Prediction...".format(snapshot))
-    # PuTransX_model.run_link_prediction()
-    #
-    # print("\nSnap {}: (1.2) Run Triple Classification + Negative Triple Classifcation...".format(snapshot))
-    # PuTransX_model.run_triple_classification_from_files(snapshot)
+    print("Snap {}: (1) Conduct evaluation setting with missing energy score handling: {}".format(snapshot, "Infinity Score Handling"))
+    PuTransX_model.missing_embedding_handling = "last_rank"
+
+    print("\nSnap {}: (1.1) Run Link Prediction...".format(snapshot))
+    PuTransX_model.run_link_prediction()
+
+    print("\nSnap {}: (1.2) Run Triple Classification + Negative Triple Classifcation...".format(snapshot))
+    PuTransX_model.run_triple_classification_from_files(snapshot)
 
     print("\nSnap {}: (2) Run Link Prediction with mode: {}.".format(snapshot, "Null Vector Handling"))
     PuTransX_model.missing_embedding_handling = "null_vector"
@@ -79,13 +79,23 @@ def main():
         checkpoint_path.mkdir(exist_ok=True)
         print("Created folder for experiments")
 
+    logs_path = Path("../evaluation_framework_logs/")
+    if not logs_path.exists():
+        logs_path.mkdir(exist_ok=True)
+        print("Created folder for output logs")
+
+    evaluated_markers_path = checkpoint_path / "evaluated_marker"
+    if not evaluated_markers_path.exists():
+        evaluated_markers_path.mkdir(exist_ok=True)
+        print("Created folder for evaluated markers")
+
     init_random_seed = 4
     num_snapshots = 4
     incremental_dataset_path = "../benchmarks/Wikidata/WikidataEvolve/"
 
     early_stopping_patience = 5
-    valid_steps = 10 # TODO set to 100
-    limit_embedding_spaces = 10
+    valid_steps = 100
+    limit_embedding_spaces = 1000
     print("Initial random seed is:", init_random_seed)
     print("Number of snapshots are:", num_snapshots)
 
@@ -159,6 +169,12 @@ def main():
         missing_embedding_handling="last_rank")
 
     for snapshot in range(1, num_snapshots + 1):
+        # Configure log for snapshot
+        # orig_sys_stdout = sys.stdout
+        # snapshot_log = logs_path / "PuTransE_on_WikidataEvolve_snapshot_{}_on_{}.txt".format(snapshot, datetime.now().strftime('%Y_%m_%d'))
+        # log = snapshot_log.open(mode="wt", encoding="UTF-8")
+        # sys.stdout = log
+
         # (1) Evolve underlying KG
         evolve_KG(PuTransE, snapshot)
 
@@ -166,8 +182,18 @@ def main():
         PuTransX_training_procedure(PuTransE, snapshot, limit_embedding_spaces)
 
         # (3) Evaluation
-        PuTransX_evaluation_procedure(PuTransE, "normal", snapshot)
-        PuTransX_evaluation_procedure(PuTransE, "deprecate", snapshot)
+        already_evaluated_marker_file = evaluated_markers_path / "PuTransE_snapshot_{}.evaluated".format(snapshot)
+        if not already_evaluated_marker_file.exists():
+            PuTransX_evaluation_procedure(PuTransE, "normal", snapshot)
+            PuTransX_evaluation_procedure(PuTransE, "deprecate", snapshot)
+            already_evaluated_marker_file.touch()
+        else:
+            print("Model has already been evaluated on snapshot {}.".format(snapshot))
+            print("Continue to next snapshot! ...")
+
+        # Close log file
+        # sys.stdout = orig_sys_stdout
+        # snapshot_log.close()
 
 if __name__ == '__main__':
     main()
