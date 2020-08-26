@@ -31,7 +31,7 @@ def PuTransX_training_procedure(PuTransX_model, snapshot, embedding_spaces):
     PuTransX_model.reset_valid_variables()
 
     print("Snap {}: (1) Check if best model already has been trained for snaphot.".format(snapshot))
-    best_model_filename = "Best_model_Pu{}_snapshot{}.ckpt".format(PuTransX_model.embedding_model.__name__, snapshot)
+    best_model_filename = "Best_model_Pu{}_snapshot_{}.ckpt".format(PuTransX_model.embedding_model.__name__, snapshot)
     best_model_file = Path(PuTransX_model.checkpoint_dir) / best_model_filename
 
     # If best model does not exist yet, train it
