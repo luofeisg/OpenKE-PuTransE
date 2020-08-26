@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+import time
 import os
 import ctypes
 from random import randrange, uniform, seed
@@ -272,7 +272,8 @@ class Parallel_Universe_Config(Tester):
     def get_best_state(self):
         if self.best_state:
             print("Get best state...")
-            print("switch {} with {} trained embedding spaces.".format(len(self.trained_embedding_spaces), len(self.best_state["trained_embedding_spaces"])))
+            print("switch {} with {} trained embedding spaces.".format(len(self.trained_embedding_spaces), len(
+                self.best_state["trained_embedding_spaces"])))
             self.trained_embedding_spaces = self.best_state["trained_embedding_spaces"]
 
             self.entity_id_mappings = self.best_state["entity_id_mappings"]
@@ -280,12 +281,16 @@ class Parallel_Universe_Config(Tester):
             self.entity_universes = self.best_state["entity_universes"]
             self.relation_universes = self.best_state["relation_universes"]
 
-            print("Trained {} universes but switch to best state with {} trained universes.".format(self.next_universe_id, self.best_state["next_universe_id"]))
+            print(
+                "Trained {} universes but switch to best state with {} trained universes.".format(self.next_universe_id,
+                                                                                                  self.best_state[
+                                                                                                      "next_universe_id"]))
             self.next_universe_id = self.best_state["next_universe_id"]
 
         return self
 
     def train_parallel_universes(self, num_of_embedding_spaces):
+        start_time = time.time()
         for universe_id in range(num_of_embedding_spaces):
             self.set_random_seed(self.initial_random_seed + self.next_universe_id)
             self.compile_train_datset()
@@ -320,6 +325,8 @@ class Parallel_Universe_Config(Tester):
             if self.save_steps and self.checkpoint_dir and (universe_id + 1) % self.save_steps == 0:
                 print('Save model at universe %d.' % self.next_universe_id)
                 self.save_model()
+        end_time = time.time()
+        print('Time took for creation of embedding spaces: {:5.3f}s'.format(end_time - start_time), end='  ')
 
     def gather_embedding_spaces(self, entity_1, rel, entity_2=None):
         entity_occurences = self.entity_universes[entity_1]
@@ -508,7 +515,6 @@ class Parallel_Universe_Config(Tester):
 
         self.incremental_strategy = "normal"
 
-
     def eval_universes(self, eval_mode):
         # Dependent on mode load validation or test data
         eval_dataloader = self.data_loader if eval_mode == 'test' else self.valid_dataloader
@@ -538,7 +544,7 @@ class Parallel_Universe_Config(Tester):
 
         if eval_embeddingspaces:
             print("- Universe range to obtain local energies: ({} -> {})".format(min(eval_embeddingspaces),
-                                                                             max(eval_embeddingspaces)))
+                                                                                 max(eval_embeddingspaces)))
             for index, [data_head, data_tail] in enumerate(evaluation_range):
                 head = data_tail['batch_h'][0]
                 rel = data_head['batch_r'][0]
@@ -755,7 +761,6 @@ class Parallel_Universe_Config(Tester):
             acc, _ = super().run_triple_classification(threshlod, data_iterator=tc_data)
             print("Accuracy for {} is: {}".format(file.name, acc))
 
-
     def run_triple_classification_from_files(self, snapshot):
         # Load basic test examples of snapshot
         snapshot_folder = Path(self.data_loader.in_path) / "incremental" / str(snapshot)
@@ -835,11 +840,11 @@ class Parallel_Universe_Config(Tester):
 
         if self.training_setting == "static":
             eval_universes_dict = {'current_tested_universes': self.current_tested_universes,
-            'current_validated_universes': self.current_validated_universes,
-            'evaluation_head2tail_triple_score_dict': self.evaluation_head2tail_triple_score_dict,
-            'evaluation_tail2head_triple_score_dict': self.evaluation_tail2head_triple_score_dict,
-            'evaluation_head2rel_tuple_score_dict': self.evaluation_head2rel_tuple_score_dict,
-            'evaluation_tail2rel_tuple_score_dict': self.evaluation_tail2rel_tuple_score_dict}
+                                   'current_validated_universes': self.current_validated_universes,
+                                   'evaluation_head2tail_triple_score_dict': self.evaluation_head2tail_triple_score_dict,
+                                   'evaluation_tail2head_triple_score_dict': self.evaluation_tail2head_triple_score_dict,
+                                   'evaluation_head2rel_tuple_score_dict': self.evaluation_head2rel_tuple_score_dict,
+                                   'evaluation_tail2rel_tuple_score_dict': self.evaluation_tail2rel_tuple_score_dict}
             state_dict.update(eval_universes_dict)
 
         return state_dict
