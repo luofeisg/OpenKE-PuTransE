@@ -185,9 +185,9 @@ def main():
     best_trained_model = None
     best_hyper_param = None
 
-    valid_steps = 1
+    valid_steps = 100
     early_stop_patience = 4
-    max_epochs = 2
+    max_epochs = 1000
 
     # Define hyper param ranges
     transe_hyper_param_dict = {}
