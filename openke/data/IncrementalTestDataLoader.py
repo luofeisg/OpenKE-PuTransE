@@ -23,7 +23,7 @@ class IncrementalTestDataLoader(TestDataLoader):
         # self.lib.readGlobalNumRelations()
         self.entTotal = self.lib.getEntityTotal()
         self.relTotal = self.lib.getRelationTotal()
-        self.lib.setNumSnapshots(self.num_snapshots)
+        # self.lib.setNumSnapshots(self.num_snapshots)
 
     def evolveTripleList(self, snapshot_idx):
         self.lib.initializeTripleOperations(snapshot_idx)
