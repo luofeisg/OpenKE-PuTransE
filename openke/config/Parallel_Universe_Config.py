@@ -593,7 +593,7 @@ class Parallel_Universe_Config(Tester):
             missing_value_replacement = tuple_score_dict.get(dict_key, float_default())
 
             if missing_value_replacement != float_default():
-                batch_scores[batch_scores == float_default()] = missing_value_replacement
+                batch_scores[batch_scores == float_default()] = missing_value_replacement.item()
 
         return batch_scores
 
