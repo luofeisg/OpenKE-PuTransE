@@ -14,6 +14,7 @@ from openke.config import Trainer, Tester, Validator
 from openke.module.loss import MarginLoss
 from openke.module.strategy import NegativeSampling
 from copy import deepcopy
+import time
 
 
 def get_hyper_param_permutations(transe_hyper_param_dict):
@@ -88,16 +89,18 @@ def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path,
                       use_gpu=torch.cuda.is_available())
 
     trained_epochs = 0
-
-    # while(early_stopping_patience !=0):
+    training_duration = 0
     while not bad_count_limit_reached and trained_epochs < max_epochs:
+        # Train and measure training time
+        start_time = time.time()
         trainer.run()
+        end_time = time.time()
+        training_duration = training_duration + (end_time - start_time)
+
         trained_epochs += valid_steps
 
         # Validation
-        # TEST
         hit10 = validator.valid()
-        # hit10 = 2 * trained_epochs * experiment_index
 
         print("hits@10 is: {}.".format(hit10))
         if hit10 > best_hit10:
@@ -119,6 +122,8 @@ def train_TransE(hyper_param_dict, dataset_name, experiment_index, dataset_path,
             bad_count_limit_reached = True
             print("----> Early stopping at epoch {}".format(trained_epochs))
             break
+
+    print('Time took for training: {:5.3f}s'.format(training_duration), end='\n')
 
     return best_model
 
