@@ -173,7 +173,6 @@ struct Parameter {
     INT *batch_t;
     INT *batch_r;
     REAL *batch_y;
-    INT *batch_head_corr;
     INT batchSize;
     INT negRate;
     INT negRelRate;
@@ -190,7 +189,6 @@ void *getBatch(void *con) {
     INT *batch_t = para->batch_t;
     INT *batch_r = para->batch_r;
     REAL *batch_y = para->batch_y;
-    INT *batch_head_corr = para->batch_head_corr;
     INT batchSize = para->batchSize;
     INT negRate = para->negRate;
     INT negRelRate = para->negRelRate;
@@ -215,7 +213,6 @@ void *getBatch(void *con) {
             batch_t[batch] = trainList[i].t;
             batch_r[batch] = trainList[i].r;
             batch_y[batch] = 1;
-            batch_head_corr[batch] = -1;
             INT last = batchSize;
             for (INT times = 0; times < negRate; times++) {
                 if (mode == 0) {
@@ -226,12 +223,10 @@ void *getBatch(void *con) {
                         batch_h[batch + last] = trainList[i].h;
                         batch_t[batch + last] = corrupt_head(id, trainList[i].h, trainList[i].r);
                         batch_r[batch + last] = trainList[i].r;
-                        batch_head_corr[batch + last] = 0;
                     } else {
                         batch_h[batch + last] = corrupt_tail(id, trainList[i].t, trainList[i].r);
                         batch_t[batch + last] = trainList[i].t;
                         batch_r[batch + last] = trainList[i].r;
-                        batch_head_corr[batch + last] = 1;
                     }
                     batch_y[batch + last] = -1;
                     last += batchSize;
@@ -240,12 +235,10 @@ void *getBatch(void *con) {
                         batch_h[batch + last] = corrupt_tail(id, trainList[i].t, trainList[i].r);
                         batch_t[batch + last] = trainList[i].t;
                         batch_r[batch + last] = trainList[i].r;
-                        batch_head_corr[batch + last] = 1;
                     } else {
                         batch_h[batch + last] = trainList[i].h;
                         batch_t[batch + last] = corrupt_head(id, trainList[i].h, trainList[i].r);
                         batch_r[batch + last] = trainList[i].r;
-                        batch_head_corr[batch + last] = 0;
                     }
                     batch_y[batch + last] = -1;
                     last += batchSize;
@@ -276,7 +269,6 @@ void sampling(
         INT *batch_t,
         INT *batch_r,
         REAL *batch_y,
-        INT *batch_head_corr,
         INT batchSize,
         INT negRate = 1,
         INT negRelRate = 0,
@@ -293,7 +285,6 @@ void sampling(
         para[threads].batch_t = batch_t;
         para[threads].batch_r = batch_r;
         para[threads].batch_y = batch_y;
-        para[threads].batch_head_corr = batch_head_corr;
         para[threads].batchSize = batchSize;
         para[threads].negRate = negRate;
         para[threads].negRelRate = negRelRate;
@@ -478,15 +469,52 @@ void getEntityRelations(INT* entity_rels, INT entity, bool entity_is_tail) {
 
 int main() {   
     
-    // Static
+    // // Static
     // inPath = "../../benchmarks/Wikidata/WikidataEvolve/static/1/";
     // setBern(1);
     // setWorkThreads(8);
     // randReset();
-    // setRandomSeed();
+    // setRandomSeed(4);
     // activateLoadOfAllTriples(true);
+    // importTrainFiles();
     // importTestFiles();
 
+
+    // INT batchSize = 5436;
+    // INT batchSeqSize = batchSize * 2;
+
+    // INT *batch_h; 
+    // INT *batch_t;
+    // INT *batch_r;
+    // REAL *batch_y;
+    
+    
+
+    // callocIntArray(batch_h,batchSeqSize);
+    // callocIntArray(batch_t,batchSeqSize);
+    // callocIntArray(batch_r,batchSeqSize);
+    // callocRealArray(batch_y,batchSeqSize);
+    
+    // int epochs = 1000;
+    // int batches = 100;
+    // int iterations = 2 * (epochs + batches);
+    // for(int i=0;i<iterations;i++){
+    //     sampling(
+    //     batch_h,
+    //     batch_t,
+    //     batch_r,
+    //     batch_y,
+    //     batchSize,
+    //     1,
+    //     0,
+    //     0,
+    //     true,
+    //     false,
+    //     false
+    // ); 
+
+    // }
+    
     // Incremental
     // inPath = "../../benchmarks/Wikidata/WikidataEvolve/";
     // setBern(1);

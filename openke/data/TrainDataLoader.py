@@ -35,7 +35,6 @@ class TrainDataLoader(object):
             ctypes.c_void_p,
             ctypes.c_void_p,
             ctypes.c_void_p,
-            ctypes.c_void_p,
             ctypes.c_int64,
             ctypes.c_int64,
             ctypes.c_int64,
@@ -143,12 +142,12 @@ class TrainDataLoader(object):
         self.batch_t = np.zeros(self.batch_seq_size, dtype=np.int64)
         self.batch_r = np.zeros(self.batch_seq_size, dtype=np.int64)
         self.batch_y = np.zeros(self.batch_seq_size, dtype=np.float32)
-        self.batch_head_corr = np.zeros(self.batch_seq_size, dtype=np.int64)
+
         self.batch_h_addr = self.batch_h.__array_interface__["data"][0]
         self.batch_t_addr = self.batch_t.__array_interface__["data"][0]
         self.batch_r_addr = self.batch_r.__array_interface__["data"][0]
         self.batch_y_addr = self.batch_y.__array_interface__["data"][0]
-        self.batch_head_corr_addr = self.batch_head_corr.__array_interface__["data"][0]
+
 
     def swap_helpers(self):
         self.lib.swapHelpers()
@@ -181,7 +180,6 @@ class TrainDataLoader(object):
             self.batch_t_addr,
             self.batch_r_addr,
             self.batch_y_addr,
-            self.batch_head_corr_addr,
             self.batch_size,
             self.negative_ent,
             self.negative_rel,
@@ -195,7 +193,6 @@ class TrainDataLoader(object):
             "batch_t": self.batch_t,
             "batch_r": self.batch_r,
             "batch_y": self.batch_y,
-            "batch_head_corr": self.batch_head_corr,
             "mode": "normal"
         }
 
@@ -205,7 +202,6 @@ class TrainDataLoader(object):
             self.batch_t_addr,
             self.batch_r_addr,
             self.batch_y_addr,
-            self.batch_head_corr_addr,
             self.batch_size,
             self.negative_ent,
             self.negative_rel,
@@ -219,7 +215,6 @@ class TrainDataLoader(object):
             "batch_t": self.batch_t[:self.batch_size],
             "batch_r": self.batch_r[:self.batch_size],
             "batch_y": self.batch_y,
-            "batch_head_corr": self.batch_head_corr,
             "mode": "head_batch"
         }
 
@@ -229,7 +224,6 @@ class TrainDataLoader(object):
             self.batch_t_addr,
             self.batch_r_addr,
             self.batch_y_addr,
-            self.batch_head_corr_addr,
             self.batch_size,
             self.negative_ent,
             self.negative_rel,
@@ -243,7 +237,6 @@ class TrainDataLoader(object):
             "batch_t": self.batch_t,
             "batch_r": self.batch_r[:self.batch_size],
             "batch_y": self.batch_y,
-            "batch_head_corr": self.batch_head_corr,
             "mode": "tail_batch"
         }
 

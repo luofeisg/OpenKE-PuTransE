@@ -294,17 +294,17 @@ void importTestFiles() {
     fclose(f_kb3);
 
     if (loadAllTriple){
-        FILE *fin = fopen((inPath + "triple2id.txt").c_str(), "r");
-        tripleTotal = getLineNum(fin);
+        FILE *fin1 = fopen((inPath + "triple2id.txt").c_str(), "r");
+        tripleTotal = getLineNum(fin1);
         callocTripleArray(tripleList ,tripleTotal);
         printf("Captured %ld triples in total.\n", tripleTotal);
         
         for (INT i = 0; i < tripleTotal; i++) {
-            tmp = fscanf(fin, "%ld", &tripleList[i].h);
-            tmp = fscanf(fin, "%ld", &tripleList[i].t);
-            tmp = fscanf(fin, "%ld", &tripleList[i].r);
+            tmp = fscanf(fin1, "%ld", &tripleList[i].h);
+            tmp = fscanf(fin1, "%ld", &tripleList[i].t);
+            tmp = fscanf(fin1, "%ld", &tripleList[i].r);
         }
-        fclose(fin);
+        fclose(fin1);
     }
 
     std::sort(tripleList, tripleList + tripleTotal, Triple::cmp_head);
