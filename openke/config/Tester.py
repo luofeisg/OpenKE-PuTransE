@@ -99,7 +99,7 @@ class Tester(object):
         false_negative = 0
 
         for [ans, score] in res:
-            predicted_value = 1 if score <= threshold else 0
+            predicted_value = 1 if score < threshold else 0
             if predicted_value == 1 and ans == 1:
                 true_positive += 1
 
@@ -169,6 +169,15 @@ class Tester(object):
         total_current = 0.0
         total_true = np.sum(ans)
         total_false = total_all - total_true
+
+        # Special handling for Parallel Universe scores
+        if threshlod == float("inf") and len(score[score == float("inf")]) == len(score):
+            if total_true == 0:
+                return 1.0, threshlod
+            if total_false == 0:
+                return 0.0, threshlod
+            elif total_false == total_true:
+                return 0.5, threshlod
 
         acc = 0
         for index, [ans, score] in enumerate(res):
