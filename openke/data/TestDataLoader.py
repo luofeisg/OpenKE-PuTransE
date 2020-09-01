@@ -154,9 +154,9 @@ class TestDataLoader(object):
             })
             self.lib.getTailBatch(self.test_h_addr, self.test_t_addr, self.test_r_addr)
             res.append({
-                "batch_h": self.test_h[:1].copy(),
-                "batch_t": self.test_t.copy(),
-                "batch_r": self.test_r[:1].copy(),
+                "batch_h": self.test_h[:1],
+                "batch_t": self.test_t,
+                "batch_r": self.test_r[:1],
                 "mode": "tail_batch"
             })
         elif self.mode == 'valid':
@@ -169,9 +169,9 @@ class TestDataLoader(object):
             })
             self.lib.getValidTailBatch(self.valid_h_addr, self.valid_t_addr, self.valid_r_addr)
             res.append({
-                "batch_h": self.valid_h[:1].copy(),
-                "batch_t": self.valid_t.copy(),
-                "batch_r": self.valid_r[:1].copy(),
+                "batch_h": self.valid_h[:1],
+                "batch_t": self.valid_t,
+                "batch_r": self.valid_r[:1],
                 "mode": "tail_batch"
             })
 
