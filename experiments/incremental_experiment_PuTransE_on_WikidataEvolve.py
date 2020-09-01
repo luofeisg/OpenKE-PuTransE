@@ -52,7 +52,7 @@ def PuTransX_evaluation_procedure(PuTransX_model, incremental_strategy, snapshot
     print("-- incremental strategy: {}.".format(incremental_strategy))
     print("-- Timestamp: {}.\n".format(datetime.now().strftime('%Y-%m-%dT%H:%M:%S')))
 
-    print("Snap {}: (1) Conduct evaluation setting with missing energy score handling: {}".format(snapshot, "Infinity Score Handling"))
+    print("Snap {}: (1) Run Evaluation with missing energy score handling: {}".format(snapshot, "Infinity Score Handling"))
     PuTransX_model.missing_embedding_handling = "last_rank"
 
     print("\nSnap {}: (1.1) Run Link Prediction...".format(snapshot))
@@ -61,7 +61,7 @@ def PuTransX_evaluation_procedure(PuTransX_model, incremental_strategy, snapshot
     print("\nSnap {}: (1.2) Run Triple Classification + Negative Triple Classifcation...".format(snapshot))
     PuTransX_model.run_triple_classification_from_files(snapshot)
 
-    print("\nSnap {}: (2) Run Link Prediction with mode: {}.".format(snapshot, "Null Vector Handling"))
+    print("\nSnap {}: (2) Run Evaluation with missing energy score handling: {}.".format(snapshot, "Null Vector Handling"))
     PuTransX_model.missing_embedding_handling = "null_vector"
 
     print("\nSnap {}: (2.1) Run Link Prediction...".format(snapshot))
