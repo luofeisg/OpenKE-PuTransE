@@ -80,8 +80,11 @@ class TestDataLoader(object):
         self.random_seed = random_seed
         self.read()
 
+    def set_path(self, in_path):
+        self.lib.setInPath(ctypes.create_string_buffer(in_path.encode(), len(in_path) * 2))
+
     def read(self):
-        self.lib.setInPath(ctypes.create_string_buffer(self.in_path.encode(), len(self.in_path) * 2))
+        self.set_path(self.in_path)
         self.lib.setRandomSeed(self.random_seed)
         self.lib.randReset()
 
