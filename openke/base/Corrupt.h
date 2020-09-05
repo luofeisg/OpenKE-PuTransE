@@ -3,9 +3,18 @@
 #include "Random.h"
 #include "Triple.h"
 #include "Reader.h"
+#include "UniverseSetting.h"
+#include "Incremental.h"
 
 INT corrupt_head(INT id, INT h, INT r, bool filter_flag = true) {
 	INT lef, rig, mid, ll, rr;
+	
+	if (incrementalSetting and not swap){
+			INT rand_index = rand(0, num_currently_contained_entities);
+        	INT rand_entity = currently_contained_entities[rand_index]; 
+			return rand_entity;	
+	}
+	
 	if (not filter_flag) {
 		INT tmp = rand_max(id, entityTotal - 1);
 		
@@ -49,8 +58,14 @@ INT corrupt_head(INT id, INT h, INT r, bool filter_flag = true) {
 
 INT corrupt_tail(INT id, INT t, INT r, bool filter_flag = true) {
 	INT lef, rig, mid, ll, rr;
+	
+	if (incrementalSetting and not swap){
+			INT rand_index = rand(0, num_currently_contained_entities);
+        	INT rand_entity = currently_contained_entities[rand_index];
+			return rand_entity;	
+	}
+	
 	if (not filter_flag) {
-		
 		INT tmp = rand_max(id, entityTotal - 1);
 		
 		if (tmp < t)

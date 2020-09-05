@@ -188,7 +188,7 @@ void readGlobalNumRelations() {
 
 extern "C"
 void initializeIncrementalSetting() {
-    printf("Initialize knowledge graph.\n");
+    printf("Initialize incremental setting.\n");
     incrementalSetting = true;
 
     FILE *fin;
@@ -873,7 +873,7 @@ void loadCurrentKGElements(std::set<INT> entity_set, std::set<INT> relation_set)
 extern "C"
 void loadSnapshotTriples(int snapshot) {
     resetTripleList();
-    printf("Import triple list: %d.\n", snapshot);
+    printf("Import triple list for snapshot: %d.\n", snapshot);
     std::string snapshot_folder = int_to_string(snapshot);
     
     std::set<INT> entity_set;
