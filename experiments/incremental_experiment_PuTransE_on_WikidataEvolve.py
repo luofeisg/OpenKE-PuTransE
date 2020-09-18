@@ -27,11 +27,11 @@ def evolve_KG(PuTransX_model, snapshot):
 
 def PuTransX_training_procedure(PuTransX_model, snapshot, embedding_spaces):
     print("Snap {}: Start training procedure.\n".format(snapshot))
-    PuTransX_model.training_identifier = "snapshot_{}".format(snapshot)
+    PuTransX_model.training_identifier = "snapshot_{}_6000_spaces".format(snapshot)
     PuTransX_model.reset_valid_variables()
 
     print("Snap {}: (1) Check if best model already has been trained for snaphot.".format(snapshot))
-    best_model_filename = "Best_model_Pu{}_snapshot_{}.ckpt".format(PuTransX_model.embedding_model.__name__, snapshot)
+    best_model_filename = "Best_model_Pu{}_snapshot_{}_6000_spaces.ckpt".format(PuTransX_model.embedding_model.__name__, snapshot)
     best_model_file = Path(PuTransX_model.checkpoint_dir) / best_model_filename
 
     # If best model does not exist yet, train it
@@ -94,8 +94,8 @@ def main():
     incremental_dataset_path = "../benchmarks/Wikidata/WikidataEvolve/"
 
     early_stopping_patience = 5
-    valid_steps = 100
-    limit_embedding_spaces = 1000
+    valid_steps = 200
+    limit_embedding_spaces = 6000
     print("Initial random seed is:", init_random_seed)
     print("Number of snapshots are:", num_snapshots)
 
@@ -182,7 +182,7 @@ def main():
         PuTransX_training_procedure(PuTransE, snapshot, limit_embedding_spaces)
 
         # (3) Evaluation
-        already_evaluated_marker_file = evaluated_markers_path / "PuTransE_snapshot_{}.evaluated".format(snapshot)
+        already_evaluated_marker_file = evaluated_markers_path / "PuTransE_snapshot_{}_6000_spaces.evaluated".format(snapshot)
         if not already_evaluated_marker_file.exists():
             PuTransX_evaluation_procedure(PuTransE, "normal", snapshot)
             PuTransX_evaluation_procedure(PuTransE, "deprecate", snapshot)
