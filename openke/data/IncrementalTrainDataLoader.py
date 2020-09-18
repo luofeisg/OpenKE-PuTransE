@@ -43,7 +43,7 @@ class IncrementalTrainDataLoader(TrainDataLoader):
         self.track_deleted_triples(snapshot_idx)
 
     def track_deleted_triples(self, snapshot_idx):
-        triple_operations_file = Path(self.in_path) / "incremental" / str(snapshot_idx) / "triple-op2id.txt"
+        triple_operations_file = Path(self.in_path) / "incremental" / str(snapshot_idx) / "train-op2id.txt"
 
         with open(triple_operations_file, mode="rt", encoding="utf-8") as f:
             for line in f:
