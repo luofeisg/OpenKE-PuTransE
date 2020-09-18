@@ -221,10 +221,10 @@ void *getBatch(void *con) {
                                (right_mean[trainList[i].r] + left_mean[trainList[i].r]);
                     if (randd(id) % 1000 < prob) {
                         batch_h[batch + last] = trainList[i].h;
-                        batch_t[batch + last] = corrupt_head(id, trainList[i].h, trainList[i].r);
+                        batch_t[batch + last] = corrupt_head(id, trainList[i].h, trainList[i].r, filter_flag);
                         batch_r[batch + last] = trainList[i].r;
                     } else {
-                        batch_h[batch + last] = corrupt_tail(id, trainList[i].t, trainList[i].r);
+                        batch_h[batch + last] = corrupt_tail(id, trainList[i].t, trainList[i].r, filter_flag);
                         batch_t[batch + last] = trainList[i].t;
                         batch_r[batch + last] = trainList[i].r;
                     }

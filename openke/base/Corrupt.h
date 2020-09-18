@@ -14,10 +14,10 @@ INT corrupt_head(INT id, INT h, INT r, bool filter_flag = true) {
         	INT rand_entity = currently_contained_entities[rand_index]; 
 			return rand_entity;	
 	}
-	
+
 	if (not filter_flag) {
 		INT tmp = rand_max(id, entityTotal - 1);
-		
+
 		if (tmp < h)
 			return tmp;
 		else
@@ -67,7 +67,6 @@ INT corrupt_tail(INT id, INT t, INT r, bool filter_flag = true) {
 	
 	if (not filter_flag) {
 		INT tmp = rand_max(id, entityTotal - 1);
-		
 		if (tmp < t)
 			return tmp;
 		else
