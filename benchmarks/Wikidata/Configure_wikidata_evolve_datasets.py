@@ -1,3 +1,27 @@
+'''
+MIT License
+
+Copyright (c) 2020 Rashid Lafraie
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'''
+
 from pathlib import Path
 import bz2
 import datetime
@@ -10,54 +34,6 @@ import random
 import operator
 from pprint import pprint
 from random import randrange, sample
-
-
-# -------------------- Output folder_structure --------------------
-# dataset_<timestamp>
-# |
-# |- incremental
-# |------- entity2id.txt    (File)
-# |------- relation2id.txt  (File)
-# |------- update1          (Folder)
-# |----------------------------triple2id.txt (triples die zu Snapshot1 noch wahr sind) (see (3.2.1))
-# |----------------------------triple-op2id.txt (alle triple operations der Phase 1) (see (3.1))
-# |----------------------------train-op2id.txt alle Inserts und alle lasting Delete-Operationen aus Phase 1
-# |----------------------------valid2id.txt exakt wie in static dataset - snapshot1/valid2id.txt (see (3.2.2))
-# |----------------------------test2id.txt  exakt wie in static dataset - snapshot1/test2id.txt  (see (3.2.2))
-# |------- update2          (Folder)
-# |     ...
-# |------- update<n>        (Folder)
-# |
-# |
-# |- static
-# |-------
-# |------- snapshot1          (Folder)
-# |----------------------------entity2id.txt    (File) (see (6.6))
-# |----------------------------relation2id.txt  (File) (see (6.6))
-# |----------------------------triple2id.txt (triples die zu Snapshot1 noch wahr sind) (see (3.2.1))
-# |----------------------------
-# |----------------------------train2id.txt -\          | 90%
-# |----------------------------valid2id.txt ---> Split  | 10% aus triple2id.txt  (see (6.7))
-# |----------------------------test2id.txt  -/          | 10%
-# |------- snapshot2          (Folder)
-# |     ...
-# |------- snapshot<n>        (Folder)
-# |
-# |
-# |- pseudo-incremental
-# |------- entity2id.txt    (File)
-# |------- relation2id.txt  (File)
-# |------- update1          (Folder)
-# |     ...
-# |------- update<n>          (Folder)
-# |----------------------------triple2id.txt (triples die zu Snapshot <n> wahr sind aber nicht in triple2id.txt in snap <n-1> vorkommen)
-# |                            see (3.2.3)
-# |----------------------------train2id.txt (alle triple aus static dataset train2id.txt außer die, die in snap <n-1> vorkommen)
-# |                            see (3.2.3)
-# |----------------------------valid2id.txt exakt wie in static dataset - snapshot1/valid2id.txt  (see (3.2.2))
-# |----------------------------test2id.txt  exakt wie in static dataset - snapshot1/test2id.txt   (see (3.2.2))
-
-# |------- update<n>        (Folder)
 
 
 def chunks(lst, n):
@@ -208,6 +184,7 @@ def create_directories(output_path, num_snaps):
 
     return paths_dict
 
+
 def copy_files_for_pseudo_incremental_dataset(paths, num_snapshots):
     pseudo_incremental_dataset_path = paths["pseudo_incremental"]
     entity_file = pseudo_incremental_dataset_path / "entity2id.txt"
@@ -217,7 +194,7 @@ def copy_files_for_pseudo_incremental_dataset(paths, num_snapshots):
         # Copy entity2id.txt and relation2id.txt to snapshot folders
         snapshot_fld = pseudo_incremental_dataset_path / "{}".format(snapshot)
         snap_entity_file = snapshot_fld / "entity2id.txt"
-        snap_relation_file = snapshot_fld /  "relation2id.txt"
+        snap_relation_file = snapshot_fld / "relation2id.txt"
         shutil.copy(str(entity_file), str(snap_entity_file))
         shutil.copy(str(relation_file), str(snap_relation_file))
 
@@ -225,6 +202,7 @@ def copy_files_for_pseudo_incremental_dataset(paths, num_snapshots):
         global_triple_file = snapshot_fld / "global_triple2id.txt"
         triple_file = snapshot_fld / "triple2id.txt"
         shutil.copy(str(global_triple_file), str(triple_file))
+
 
 def create_pseudo_incremental_train_datasets(paths, num_snapshots):
     # (6.1) Get snapshot folders from static dataset
@@ -785,6 +763,95 @@ def remove_obsolet_triple_ops(triple_operations_divided):
     return new_snapshots_triple_operations
 
 
+def remove_uncommon_triple_ops2(triple_operations_divided, num_snapshots, entity_frequencies_threshold,
+                                relation_frequencies_threshold):
+    triple_operations_divided = remove_uncommon_entitites(triple_operations_divided, num_snapshots,
+                                                          entity_frequencies_threshold)
+    triple_operations_divided = remove_uncommon_relations(triple_operations_divided, num_snapshots,
+                                                          relation_frequencies_threshold)
+
+    return triple_operations_divided
+
+
+def remove_uncommon_relations(triple_operations_divided, num_snapshots, relation_frequencies_threshold):
+    relation_occ_counter = defaultdict(lambda: {i: 0 for i in range(1, num_snapshots + 1)})
+
+    triple_result_set = set()
+    for snapshot_idx, triple_operations_list in enumerate(triple_operations_divided):
+        for triple_op in triple_operations_list:
+            subj, objc, pred, op_type, ts = triple_op
+            triple = (subj, objc, pred)
+            if op_type == "+":
+                triple_result_set.add(triple)
+            elif op_type == "-":
+                triple_result_set.remove(triple)
+
+        # Iterate through triple result list to obtain frequencies
+        for triple in triple_result_set:
+            subj, objc, pred = triple
+            relation_occ_counter[pred][snapshot_idx + 1] += 1
+
+    uncommon_relations = set()
+    for relation, snapshot_frequencies_dict in relation_occ_counter.items():
+        for snapshot, count in snapshot_frequencies_dict.items():
+            if count > 0 and count < relation_frequencies_threshold:
+                uncommon_relations.add(relation)
+                break
+
+    filtered_triple_operations_divided = []
+    for snapshot_idx, triple_operations_list in enumerate(triple_operations_divided):
+        filtered_ops = []
+        for triple_op in triple_operations_list:
+            subj, objc, pred, op_type, ts = triple_op
+
+            if pred not in uncommon_relations:
+                filtered_ops.append(triple_op)
+
+        filtered_triple_operations_divided.append(filtered_ops)
+
+    return filtered_triple_operations_divided
+
+
+def remove_uncommon_entitites(triple_operations_divided, num_snapshots, entity_frequencies_threshold):
+    entity_occ_counter = defaultdict(lambda: {i: 0 for i in range(1, num_snapshots + 1)})
+
+    triple_result_set = set()
+    for snapshot_idx, triple_operations_list in enumerate(triple_operations_divided):
+        for triple_op in triple_operations_list:
+            subj, objc, pred, op_type, ts = triple_op
+            triple = (subj, objc, pred)
+            if op_type == "+":
+                triple_result_set.add(triple)
+            elif op_type == "-":
+                triple_result_set.remove(triple)
+
+        # Iterate through triple result list to obtain frequencies
+        for triple in triple_result_set:
+            subj, objc, pred = triple
+            entity_occ_counter[subj][snapshot_idx + 1] += 1
+            entity_occ_counter[objc][snapshot_idx + 1] += 1
+
+    uncommon_entities = set()
+    for entity, snapshot_frequencies_dict in entity_occ_counter.items():
+        for snapshot, count in snapshot_frequencies_dict.items():
+            if count < entity_frequencies_threshold and count > 0:
+                uncommon_entities.add(entity)
+                break
+
+    filtered_triple_operations_divided = []
+    for snapshot_idx, triple_operations_list in enumerate(triple_operations_divided):
+        filtered_ops = []
+        for triple_op in triple_operations_list:
+            subj, objc, pred, op_type, ts = triple_op
+
+            if subj not in uncommon_entities and objc not in uncommon_entities:
+                filtered_ops.append(triple_op)
+
+        filtered_triple_operations_divided.append(filtered_ops)
+
+    return filtered_triple_operations_divided
+
+
 def remove_uncommon_triple_ops(triple_operations_divided, num_snapshots, entity_frequencies_threshold,
                                relation_frequencies_threshold):
     entity_occ_counter = defaultdict(lambda: {i: 0 for i in range(1, num_snapshots + 1)})
@@ -836,6 +903,7 @@ def remove_uncommon_triple_ops(triple_operations_divided, num_snapshots, entity_
 
     return filtered_triple_operations_divided
 
+
 def load_mapping_dict(filepath):
     mapping_dict = {}
     with filepath.open(mode="rt", encoding="UTF-8") as f:
@@ -845,13 +913,14 @@ def load_mapping_dict(filepath):
 
     return mapping_dict
 
+
 def map_triple_files(path_dict, num_snapshots):
     static_dataset_path = path_dict["static"]
     dataset_name = "global_triple2id.txt"
 
-    for snapshot in range(1, num_snapshots+1):
+    for snapshot in range(1, num_snapshots + 1):
         static_snapshot_fld = static_dataset_path / "{}".format(snapshot)
-        entities_mapping_file =  static_snapshot_fld / "entity2id.txt"
+        entities_mapping_file = static_snapshot_fld / "entity2id.txt"
         entity_mapping_dict = load_mapping_dict(entities_mapping_file)
         relations_mapping_file = static_snapshot_fld / "relation2id.txt"
         relation_mapping_dict = load_mapping_dict(relations_mapping_file)
@@ -868,17 +937,18 @@ def map_triple_files(path_dict, num_snapshots):
                 rel = relation_mapping_dict[rel]
                 out.write("{} {} {}\n".format(head, tail, rel))
 
+
 def map_static_evaluation_samples(path_dict, num_snapshots):
     incremental_dataset_path = path_dict["incremental"]
     static_dataset_path = path_dict["static"]
     dataset_names = ["valid2id.txt", "test2id.txt"]
 
-    for snapshot in range(1, num_snapshots+1):
+    for snapshot in range(1, num_snapshots + 1):
         static_snapshot_fld = static_dataset_path / "{}".format(snapshot)
-        entities_mapping_file =  static_snapshot_fld / "entity2id.txt"
+        entities_mapping_file = static_snapshot_fld / "entity2id.txt"
         entity_mapping_dict = load_mapping_dict(entities_mapping_file)
 
-        relations_mapping_file =  static_snapshot_fld / "relation2id.txt"
+        relations_mapping_file = static_snapshot_fld / "relation2id.txt"
         relation_mapping_dict = load_mapping_dict(relations_mapping_file)
 
         for dataset in dataset_names:
@@ -923,10 +993,14 @@ def create_wikidata_datasets(triple_operations, num_snapshots, num_of_sampled_te
     triple_operations_divided = remove_obsolet_triple_ops(triple_operations_divided)
 
     # (3.2) Remove filter operations of entities and relation which participate in less than 50 triples along the kg
-    triple_operations_divided = remove_uncommon_triple_ops(triple_operations_divided,
-                                                           num_snapshots,
-                                                           entity_frequencies_threshold=15,
-                                                           relation_frequencies_threshold=100)
+    # triple_operations_divided = remove_uncommon_triple_ops(triple_operations_divided,
+    #                                                        num_snapshots,
+    #                                                        entity_frequencies_threshold=50,
+    #                                                        relation_frequencies_threshold=100)
+    triple_operations_divided = remove_uncommon_triple_ops2(triple_operations_divided,
+                                                            num_snapshots,
+                                                            entity_frequencies_threshold=15,
+                                                            relation_frequencies_threshold=70)
 
     # (3) Map item and property ids of wikidata to new global entity and relation ids which we use in our datasets
     triple_operations_divided = create_global_mapping(triple_operations_divided, output_path, paths_dict)
