@@ -21,7 +21,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
-
 from pathlib import Path
 import sys
 
@@ -32,12 +31,10 @@ sys.path.append(str(openke_path))
 from openke.config import Parallel_Universe_Config
 from openke.data import TrainDataLoader, TestDataLoader
 from openke.module.model import TransD
+import random
 
 if __name__ == '__main__':
-    # Initialize random seed to make experiments reproducable
-    # init_random_seed = randint(0, 2147483647)
-    init_random_seed = 4
-
+    init_random_seed = random.randint(0, 2147483647)
     print("Initial random seed is:", init_random_seed)
 
     # Initialize TrainDataLoader for sampling of examples
@@ -58,8 +55,8 @@ if __name__ == '__main__':
 
     # Set parameters for model used in the Parallel Universe Config (in this case TransD)
     param_dict = {
-        'dim_e': 100,
-        'dim_r': 100,
+        'dim_e': 20,
+        'dim_r': 20,
     }
 
     embedding_method = TransD

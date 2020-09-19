@@ -33,6 +33,7 @@ from openke.data import IncrementalTrainDataLoader, IncrementalTestDataLoader
 from openke.config import Parallel_Universe_Config
 from openke.module.model import TransE
 from datetime import datetime
+import random
 
 def evolve_KG(PuTransX_model, snapshot):
     print("Snap {}: (1) Evolve underlying KG".format(snapshot))
@@ -113,7 +114,7 @@ def main():
         evaluated_markers_path.mkdir(exist_ok=True)
         print("Created folder for evaluated markers")
 
-    init_random_seed = 4
+    init_random_seed = random.randint(0, 2147483647)
     num_snapshots = 4
     incremental_dataset_path = "../benchmarks/Wikidata/WikidataEvolve/"
 

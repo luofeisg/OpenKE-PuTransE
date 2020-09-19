@@ -21,7 +21,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
-
 import sys
 from pathlib import Path
 import torch
@@ -37,6 +36,7 @@ from openke.config import Trainer, Tester, Validator
 from openke.module.loss import MarginLoss
 from openke.module.strategy import NegativeSampling
 from copy import deepcopy
+import random
 
 
 def get_hyper_param_permutations(transe_hyper_param_dict):
@@ -52,7 +52,7 @@ def get_hyper_param_permutations(transe_hyper_param_dict):
 
 def train_Model(model, hyper_param_dict, dataset_name, experiment_index, dataset_path, valid_steps, early_stop_patience,
                  max_epochs):
-    init_random_seed = 4
+    init_random_seed = random.randint(0, 2147483647)
     print("Initial random seed is:", init_random_seed)
 
     # get_hyper_params

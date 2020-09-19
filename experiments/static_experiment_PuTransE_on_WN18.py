@@ -32,13 +32,11 @@ sys.path.append(str(openke_path))
 from openke.config import Parallel_Universe_Config
 from openke.data import TrainDataLoader, TestDataLoader
 from openke.module.model import TransE, TransH
-import torch
+import random
+
 
 if __name__ == '__main__':
-    # Initialize random seed to make experiments reproducable
-    # init_random_seed = randint(0, 2147483647)
-    init_random_seed = 4
-
+    init_random_seed = random.randint(0, 2147483647)
     print("Initial random seed is:", init_random_seed)
 
     # Initialize TrainDataLoader for sampling of examples

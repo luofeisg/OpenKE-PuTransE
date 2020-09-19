@@ -38,6 +38,7 @@ from openke.module.loss import MarginLoss
 from openke.module.strategy import NegativeSampling
 from copy import deepcopy
 import time
+import random
 
 
 def evolve_KG(valid_dataloader, test_dataloader, snapshot, dataset_path):
@@ -55,7 +56,7 @@ def evolve_KG(valid_dataloader, test_dataloader, snapshot, dataset_path):
 
 def train_TransE(predefined_model, hyper_param_dict, increment_path, valid_dataloader, dataset_name, snapshot,
                  valid_steps, early_stopping_patience, max_epochs):
-    init_random_seed = 4
+    init_random_seed = random.randint(0, 2147483647)
     print("Initial random seed is:", init_random_seed)
 
     # get_hyper_params
