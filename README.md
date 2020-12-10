@@ -1,3 +1,50 @@
+# Parallel Universe Configuration (PuTransE)
+
+Here, you can find the implementation of the (inductive) knowledge graph embedding technique Parallel Universe TransE (puTransE) proposed by _Yi Tay_, _Luu Anh Tuan_ and _Siu Cheung Hui_ in their paper _Non-Parametric Estimation of Multiple Embeddings for Link Prediction on Dynamic Knowledge Graphs_.
+
+As illustrated in the animation below, PuTransE maps the entities and relations of a knowledge graph onto multiple vector spaces also referred to as universes. To learn these embedding spaces the transductive knowledge graph embedding technique TransE is applied. 
+The local embedding spaces are then aggregated to predict the plausibility of an arbitrary triple in the represented knowledge graph at hand. An analogy can be drawn to random forests, where a prediction is delegated to multiple, randomly-created decision trees. 
+
+<br>
+
+<p align="center">
+   <img src="animations/PuTransE_concept.gif" height="60%" width="60%">
+</p>   
+
+
+
+In this way, PuTransE enables inductive knowledge graph embedding (also referred to as online-learning) as illustrated in the animation below.
+Starting from the initial state of a knowledge graph, PuTransE produces multiple randomly-configured embedding spaces. In case the graph is updated afterwards, based on the new graph's state new embedding spaces are learned which are then aggregated with previously learned ones in order to calculate triple predictions.
+
+<br>
+
+<p align="center">
+   <img src="animations/PuTransE_inductive_strategy.gif" height="60%" width="60%">
+</p>   
+
+
+## Usage
+
+Similar to the approach of the authors to embed TransE into the setting of parallel universes to enable inductive knowledge graph embedding, basically any other knowledge graph embedding technique can be used that is based on translations in the vector space. Accordingly, I implemented the configuration of parallel universes (see [`Parallel_Universe_Config.py`](https://github.com/rlafraie/OpenKE-PuTransE/blob/OpenKE-PyTorch/openke/config/Parallel_Universe_Config.py) and integrated it as a module within the OpenKE framework which provides a variety of readily-made embedding models. As a result, parallel universe are not only combinable with TransE but moreover with multiple other embedding techniques supplied by OpenKE. 
+
+These include:
+- TransH
+- TransD 
+- TransR
+- DistMult
+
+
+The files [`static_experiment_PuTransE_on_WN18.py`](https://github.com/rlafraie/OpenKE-PuTransE/blob/OpenKE-PyTorch/experiments/static_experiment_PuTransE_on_WN18.py), [`static_experiment_PuTransH_on_WN18.py`](https://github.com/rlafraie/OpenKE-PuTransE/blob/OpenKE-PyTorch/experiments/static_experiment_PuTransH_on_WN18.py), [`static_experiment_PuTransD_on_WN18.py`](https://github.com/rlafraie/OpenKE-PuTransE/blob/OpenKE-PyTorch/experiments/static_experiment_PuTransD_on_WN18.py) show example usages of the parallel universe configuration. Here, I encapsulated the OpenKE instances of TransE, TransH and TransD to form the inductive relatives of PuTransE, PuTransH and PuTransD and evaluated them on the WN18 benchmark. 
+
+Further, the file [`incremental_experiment_PuTransE_on_WikidataEvolve.py`](https://github.com/rlafraie/OpenKE-PuTransE/blob/OpenKE-PyTorch/experiments/incremental_experiment_PuTransE_on_WikidataEvolve.py) manifests an experiment conducted during my master's thesis where I applied and evaluated PuTransE by performing online embedding learning on the WikidataEvolve benchmark.
+
+<br>
+<h1 align="center"> README.md from forked repository </h1>
+
+<br> 
+
+<br>
+
 # OpenKE-PyTorch
 
 An Open-source Framework for Knowledge Embedding implemented with PyTorch.
