@@ -1,4 +1,3 @@
-14
 knownFor	0
 actress	1
 writer	2

@@ -1,4 +1,3 @@
-36
 isLeaderOf	0
 imports	1
 isPoliticianOf	2
